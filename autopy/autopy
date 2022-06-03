@@ -1,0 +1,137 @@
+#!/bin/bash
+#=============================================================================
+# HEADER
+#=============================================================================
+#% SYNOPSIS
+#%    ${prog}
+#%
+#% DESCRIPTION
+#%    Script to deploy python 
+#%
+#% ARGUMENTS
+#%    NONE
+#%
+#% EXAMPLES
+#%    ${prog}
+#%
+#=============================================================================
+#  HISTORY
+#     20220104  innod motingxia@163.com
+#=============================================================================
+#  NOTES
+#=============================================================================
+# END_OF_HEADER
+#=============================================================================
+
+#=============================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#=============================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions.ksh
+fi
+
+#=============================================================================
+#  FUNCTIONS
+#=============================================================================
+do_exit() {
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
+}
+
+if [ $# -gt 0 ]; then
+    usage
+    exit 8
+fi
+i=1
+scriptname=$(basename $0)
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+echo ${LogFile}
+RC=0
+
+check_env(){
+    if [ -d /usr/local/python ];then
+        log_warning "python alredy there"
+        ask_yn
+        RC=$?
+        if [ ${RC} = 0 ]; then
+            log_warning "reinstall python"
+            rm -rf /usr/local/python
+        else
+            log_error "quite python install"
+            do_exit 8
+        fi 
+    fi
+}
+
+download_compile(){
+    mywget https://www.python.org/ftp/python/3.9.10/Python-3.9.10.tgz python.tgz
+    tar -xvf ${DOWNLOADDIR}python.tgz -C /usr/local
+    mv /usr/local/Python-3.9.10 /usr/local/python
+    cd /usr/local/python/ && ./configure --prefix=/usr/local/python
+    if [ $? -eq 0 ];then 
+        ./configure --enable-optimizations
+        log_info "python confiugre done"
+    else 
+        log_error "confiure pthon failed"
+        do_exit 8
+    fi
+    if make ;then
+        log_info "python make done"
+    else 
+        log_error "pthon make failed"
+        do_exit 8
+    fi
+    make install
+    if [ $? -lt  4 ];then
+        log_info "python make install done"
+    else 
+        log_error "pthon make install failed"
+        do_exit 8
+    fi
+}
+exec_counter
+#=============================================================================
+#  Main
+#=============================================================================
+{
+    check_env
+    download_compile
+    if which python; then
+        log_info "`python -V` alraedy there"
+    else
+        echo "export PATH=$PATH:$HOME/bin:/usr/local/python" >>/etc/profile
+        source /etc/profile
+        log_info "`python -V` is deploed"
+    fi
+
+log_info "RC=${RC}"
+} 2>&1 | tee -a $LogFile
+
+if [ -f /tmp/RC.$$ ]; then
+    RC=$(cat /tmp/RC.$$)
+    log_info "RC=${RC}"
+    rm -f /tmp/RC.$$
+fi
+if [ "$RC" == "0" ]; then
+    log_info   "OK: EndofScript ${scriptname} "    | tee -a $LogFile
+else
+    log_error  "ERROR: EndofScript ${scriptname} " | tee -a $LogFile
+fi
+
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info     "$(date)   Runtime      :   $diff"  | tee -a $LogFile
+log_info     "Save log to ${LogFile}         "   | tee -a $LogFile
+python -V |mail -s "deploy python result RC=$RC on $(hostname)" motingxia@163.com
+logrename  ${LogFile}
+exit ${RC}

@@ -1,0 +1,133 @@
+#!/usr/bin/bash
+# HEADER
+#================================================================
+#% SYNOPSIS
+#%    ${prog}  file1
+#%
+#% DESCRIPTION
+#%    xsync
+#%
+#% ARGUMENTS
+#%     file1 file2 file3
+#%
+#% EXAMPLES
+#%    ${prog} file1
+#%
+#================================================================
+#  HISTORY
+#     20220104  innod motingxia@163.com
+#================================================================
+#  NOTES
+#================================================================
+# END_OF_HEADER
+#================================================================
+
+#================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+  . ${RUNDIR}/functions.ksh
+fi
+
+#================================================================
+#  FUNCTIONS
+#================================================================
+do_exit() {
+  RC=$1
+  echo "$RC" >/tmp/RC.$$
+  exit $RC
+}
+
+if [ $# -lt 1 ]
+then
+  usage
+  exit 8;
+fi
+
+. ${RUNDIR}/master-slave.sh
+RC=0
+
+starttime=$(date +%s)
+scriptname=$(basename $0)
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
+  touch ${LOG_FILE_DIR}/${scriptname}.log
+  LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+  rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+  touch ${LOG_FILE_DIR}/${scriptname}.log
+  LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+echo ${LogFile}
+
+
+#================================================================
+#     main
+#================================================================
+
+{
+#2. 遍历集群所有机器
+for host in `seq 0 ${#NODE_NAMES[@]}`
+    do
+        if test -z ${NODE_NAMES[$host]} ; then
+           break
+        else
+            log_info "====================  ${NODE_NAMES[$host]}  ===================="
+            # 3. 遍历所有目录，挨个发送
+            for file in $@
+            do
+                #4 判断文件是否存在
+                if [ -e $file ]; then
+                    #5. 获取父目录
+                    pdir=$(cd -P $(dirname $file); pwd)
+                    # 6. 获取当前文件的名称
+                    fname=$(basename $file)
+                    
+                    if is_reachable ${NODE_NAMES[$host]}; then
+                        log_info "  copy $(hostname):${pdir}/${fname} to ${NODE_NAMES[$host]}:$pdir/${fname}"
+                        ssh ${NODE_NAMES[$host]}  "mkdir -p $pdir"
+                        rsync -avz $pdir/$fname ${NODE_NAMES[$host]}:$pdir
+                        log_info "  copy $(hostname):${pdir}/${fname} to ${NODE_NAMES[$host]}:$pdir/${fname} done"
+                    else
+                        log_error "  host ${NODE_NAMES[$host]} not exist"
+                        do_exit 8
+                    fi
+                elif  [ -d $file ]; then
+                    if is_reachable ${NODE_NAMES[$host]}; then
+                        log_info "  copy $(hostname):${file} to ${NODE_NAMES[$host]}:${file}"
+                        ssh ${NODE_NAMES[$host]}  "mkdir -p ${file}"
+                        rsync -avz ${file} ${NODE_NAMES[$host]}:${file}
+                        log_info "  copy $(hostname):${file} to ${NODE_NAMES[$host]}:${file} done"
+                    else
+                        log_error "  host ${NODE_NAMES[$host]} not exist"
+                        do_exit 8
+                    fi
+                else
+                    if test -z $file ; then
+                        break
+                    else
+                        log_info "  $file does not exists!"
+                        do_exit 8
+                    fi
+                fi
+            done
+        fi
+    done
+} 2>&1 | tee -a $LogFile
+
+if [ -f /tmp/RC.$$ ]; then
+   RC=$(cat /tmp/RC.$$)
+   rm -f /tmp/RC.$$
+fi
+if [ "$RC" == "0" ]; then
+  log_info  "  OK: EndofScript ${scriptname} " | tee -a $LogFile
+else
+  log_error  "  ERROR: EndofScript ${scriptname} " | tee -a $LogFile
+fi
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info  "  $(date)   Runtime      :   $diff" | tee -a $LogFile
+log_info  "  Save log to ${LogFile}             "  | tee -a $LogFile
+logrename  ${LogFile}
+exit ${RC}

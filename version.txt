@@ -1,0 +1,3 @@
+v0.1
+   - vmware host auto start and stop stopvm.py startvm.py
+   - generate password dict with mysql

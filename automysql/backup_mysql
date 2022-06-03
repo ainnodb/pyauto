@@ -1,0 +1,158 @@
+#!/bin/bash
+#=============================================================================
+# HEADER
+#=============================================================================
+#% SYNOPSIS
+#%    ${prog}
+#%
+#% DESCRIPTION
+#%    Script to backup mysql database 
+#%
+#% ARGUMENTS
+#%    directory
+#%
+#% EXAMPLES
+#%    ${prog} /backup
+#%
+#=============================================================================
+#  HISTORY
+#     20220104  innod motingxia@163.com
+#=============================================================================
+#  NOTES
+#=============================================================================
+# END_OF_HEADER
+#=============================================================================
+
+#=============================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#=============================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions.ksh
+fi
+
+#=============================================================================
+#  FUNCTIONS
+#=============================================================================
+do_exit() {
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
+}
+
+if [ $# -gt 1 ]; then
+    usage
+    exit 8
+fi
+
+RC=0
+
+scriptname=$(basename $0)
+starttime=$(date +%s)
+log_info "start time ${starttime}"
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+log_info  "logfile: ${LogFile}"
+#=============================================================================
+#  main
+#=============================================================================
+{
+runas_root
+if which xtrabackup >/dev/null;then
+    log_info "xtrabackup is already install on host ${HOSTNAME}"
+else
+    sh ${RUNDIR}/backuptool
+fi
+. ~/.bash_profile
+#prepare backup need paramter
+if [ $# -gt 0 ];then 
+    backupTargetPath=$1
+else 
+    filecreatedate=`date +%Y%m%d%H%M`
+    backupTargetPath=/data/mysqldata/${filecreatedate}
+fi
+if  [ ! -d ${backupTargetPath} ] ;then
+    mkdir -p ${backupTargetPath}
+    log_info "mysql backup directory ${backupTargetPath} is created"
+else 
+    if [ -f /data/mysqldata/ibdata1 ];then
+        log_warning "there is some old backup in this folder"
+        log_warning "do you want to continue:"
+        ask_yn
+        if [ $? -eq 0 ];then
+            log_warning "cleanup the old backup  ${backupTargetPath} and then continue "
+            rm -rf /data/mysqldata/*
+        else
+            do_exit 8
+        fi
+    fi
+fi
+
+defaultpath="$(ps -ef|grep -i socket|cut -d'=' -f3|cut -d'/' -f1,2,3)"
+defaultfile=$(find /data -name my.cnf)
+backupsocket=$(cat $(find /data -name my.cnf)|grep -i mysql.sock|awk 'NR==1{print}'|cut -d'=' -f2)
+backupuser="root"
+# password="XXXXXXXXXXXXX"
+log_info "start backup on ${HOSTNAME} on target diri ${backupTargetPath}"
+# xtrabackup --defaults-file=${defaultfile} -uroot -pLenovo@2020 -S ${backupsocket} --backup --target-dir=${backupTargetPath}
+if [ -f /tmp/backup ]; then
+    if ps -ef|grep -i xtrabackup|grep -v grep|wc -l;then
+        rm -rf /tmp/backup
+    else 
+        log_error "a backup is running!!!"
+        do_exit 8
+    fi
+fi
+# echo "xtrabackup --defaults-file=${defaultfile} --socket=${backupsocket} --target-dir=${backupTargetPath} --backup --user=${backupuser} --password=${password}" >>/tmp/backup
+echo "xtrabackup --defaults-file=${defaultfile} --login-path=root --target-dir=${backupTargetPath} --backup" >>/tmp/backup
+log_info "start backup"
+chmod +x /tmp/backup
+eval /tmp/backup
+# xtrabackup --defaults-file=/data/3308/my.cnf --user=root --password=Lenovo@2020 --socket=/data/3308/data/mysql.sock --backup --target-dir=/data/mysqldata
+if [ $? -eq 0 ];then
+    log_info "xtrabackup done on host ${HOSTNAME} in ${backupTargetPath}"
+    rm -rf /tmp/backup
+else
+    do_exit 8
+fi
+
+log_info "prepqre logs on ${backupTargetPath}"
+xtrabackup --prepare --target-dir=${backupTargetPath}
+if [ $? -eq 0 ];then
+    log_info "prepare done on host ${HOSTNAME} in ${backupTargetPath}"
+    log_info "read for restore database"
+else
+    do_exit 8
+fi
+if ! which mail >/dev/null;then
+    mymail
+fi 
+
+
+} 2>&1 | tee -a $LogFile
+
+if [ -f /tmp/RC.$$ ]; then
+    RC=$(cat /tmp/RC.$$)
+    rm -f /tmp/RC.$$
+fi
+log_info "RC=${RC}"
+if [ "$RC" == "0" ]; then
+    log_info   "OK: EndofScript ${scriptname} "    | tee -a $LogFile
+else
+    log_error  "ERROR: EndofScript ${scriptname} " | tee -a $LogFile
+fi
+
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info     "$(date)   Runtime      :   $diff"  | tee -a $LogFile
+log_info     "Save log to ${LogFile}         "   | tee -a $LogFile
+echo -e "mailbackup on ${starttime}"|mail -s "mysql backup result RC=$RC on $(hostname)" motingxia@163.com  |tee -a $LogFile
+logrename  ${LogFile}
+exit ${RC}

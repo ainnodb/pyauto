@@ -1,0 +1,206 @@
+#!/usr/bin/ksh
+#================================================================
+# HEADER
+#================================================================
+#% SYNOPSIS
+#%    . ${prog} <SID> [<dev-branch-name>]
+#%
+#% DESCRIPTION
+#%    Set Enviornment Variables based on given SID. This script
+#%    needs to be sourced!
+#%
+#% ARGUMENTS
+#%    <SID>     SID of SAP System/Database or OS to set only
+#%              OS relevant environment variables
+#%    <name>    Optional, specify a dev-branch-name. In case the
+#%              folders /mnt/hgfs/pyauto/kubernetes
+#%
+#% EXAMPLES
+#%    . ${prog} <ZKU>
+#%
+#================================================================
+#  HISTORY
+#     20220513  motingxia
+# 
+#================================================================
+#  NOTES
+#     
+#================================================================
+# END_OF_HEADER
+#================================================================
+# DEBUG Settings
+if [ "$DEBUG" = "YES" ]; then
+  export debug="set -x"
+else
+  export debug="set +x"
+fi
+
+##########################################################
+# DEFAULTS
+##########################################################
+umask 022
+SHELL=/usr/bin/ksh
+
+##########################################################
+# DIRECTORIES -- DEV_BRANCH_NAME
+##########################################################
+if [[ -n ${DEV_BRANCH_NAME} ]]; then
+  # RUNDIR
+  if [[ -f /mnt/hgfs/pyauto/kubernetes/${DEV_BRANCH_NAME}/set_vars ]]; then
+    export RUNDIR=/mnt/hgfs/pyauto/kubernetes/${DEV_BRANCH_NAME}
+  fi
+  # EXEDIR
+  if [[ -f /mnt/hgfs/pyauto/kubernetes/${DEV_BRANCH_NAME}/bopsw ]]; then
+    export EXEDIR=/mnt/hgfs/pyauto/kubernetes/${DEV_BRANCH_NAME}
+  fi
+fi
+
+##########################################################
+# DIRECTORIES -- Add to PATH
+##########################################################
+if ! echo ${PATH} | grep -q ${RUNDIR}; then
+  export PATH=${RUNDIR}:${PATH}
+fi
+if ! echo ${PATH} | grep -q ${EXEDIR}; then
+  export PATH=${EXEDIR}:${PATH}
+fi
+
+##########################################################
+# OS DEPENDENT
+##########################################################
+case $(uname) in
+Linux)
+  export EXEDIRBSH=/mnt/hgfs/pyauto/kubernetes
+
+  # ARCH DEPENDENT
+  case $(uname -i) in
+    ppc64le)
+      export OS=LINUX_Power
+      export os=linux_power
+      export UC4_EXECNAME=ucxblplc
+      export OLDEXEDIR=/usr/local/boschsoft/linpowle
+      ;;
+    ppc64)
+      export OS=LINUX_Power
+      export os=linux_power
+      export UC4_EXECNAME=ucxjlp6
+      export OLDEXEDIR=/usr/local/boschsoft/linpow
+      ;;
+    x86_64)
+      export OS=LINUX_X86
+      export os=linux_x86
+      export UC4_EXECNAME=ucxjlx6
+      export OLDEXEDIR=/usr/local/boschsoft/linx86
+      ;;
+  esac
+  
+  ;;
+AIX)
+  export OS=AIX
+  export os=aix
+  export UC4_EXECNAME=ucxja64
+  export EXEDIRBSH=/usr/local/bshsoft/aix
+  ;;
+esac
+
+# Handle . set_vars OS
+if [[ "$x_mysid" == "OS" || "$x_mysid" == "LINUX_X86" ]]; then
+  export x_mysid=${OS}
+fi
+  
+##########################################################
+# SSH/SCP
+##########################################################
+export DIRECT_RSH="ssh -o BatchMode=yes"
+export DIRECT_RCP="scp -o BatchMode=yes"
+export RCPO="scp"
+export RSHO="ssh"
+export RCP_RSB="scp -o BatchMode=yes"
+export RCPO_RSB="scp"
+
+##########################################################
+# ALIASES
+##########################################################
+export FOLLOW=""
+export PING="ping -c 1 -w 4"
+
+##########################################################
+# EMAIL ADDRESSES
+##########################################################
+export AUTOMAIL="motingxia@163.com"
+
+
+##########################################################
+# AUTOMAITON SHARE
+##########################################################
+export AUTO_BASEDIR="/workdata"
+
+##########################################################
+# INVENTORY
+##########################################################
+
+##########################################################
+# SET_VARS -- CUSTOMER
+##########################################################
+if [ -f $RUNDIR/set_vars.$LOCCUST ]; then
+  . $RUNDIR/set_vars.$LOCCUST
+fi
+
+##########################################################
+# ERROR NOTIFICATION DEFAULTS
+##########################################################
+ERR_DIFF="30"                          # Zeitintervall/min zwischen identischen Meldungen
+ERR_EXCPT_TAB=${RUNDIR}/.ERR_EXCPT_TAB # Ausnahmetabelle
+
+##########################################################
+# SID - GENERAL
+##########################################################
+export x_sid=$(echo $x_mysid | tr "[:upper:]" "[:lower:]")
+export SIDADM=$x_sid"adm"
+export ORACLE_SID=$x_mysid
+export oracle_sid=$(echo $ORACLE_SID | tr "[:upper:]" "[:lower:]")
+export QMASK="*"
+
+
+##########################################################
+# SID - DB-STATUS
+##########################################################
+export ORACLE_STATUS_UNKNOWN="UNKNOWN"
+export ORACLE_STATUS_NOTAVAILABLE="NOTAVAILABLE"
+export ORACLE_STATUS_STARTED="STARTED"
+export ORACLE_STATUS_OPEN="OPEN"
+export ORACLE_STATUS_MOUNT="MOUNTED"
+
+##########################################################
+# SID - DB_ORACLE
+##########################################################
+# orasid
+export ORASID=$(ls -ld /oracle/$x_mysid/ 2>/dev/null | awk '{print $3}' | egrep -e "ora${x_sid}" -e "orcl${x_sid}")
+if [ "$ORASID" = "" ]; then
+  export ORASID="ora"$x_sid
+fi
+export DBA=$(ls -ld /oracle/$x_mysid/ 2>/dev/null | awk '{print $4}' | egrep -e "oinstall" -e "dba" -e "dba${x_sid}")
+if [ "$DBA" = "" ]; then
+  export DBA="dba"
+fi
+
+# get db_oracle basics from env files
+SAPUSER=""
+DBTYPE=""
+ORACLE_HOME=""
+##########################################################
+#  SET_VARS -- LOCAL
+##########################################################
+if [ -f $HOMEDIRS/uc4batch/set_vars.$HOST ]; then
+  . $HOMEDIRS/uc4batch/set_vars.$HOST
+fi
+if [ -f $HOMEDIRS/uc4batch/set_vars.$ORACLE_SID ]; then
+  . $HOMEDIRS/uc4batch/set_vars.$ORACLE_SID
+fi
+# Set LOCCUST again in case CUSTOMER was changed in set_vars.<host/sid>
+export LOCCUST=$(echo $CUSTOMER | tr "[:upper:]" "[:lower:]")
+
+
+if [ "$DBTYPE" = "" ]; then
+  export DBTYPE=ORA
+fi

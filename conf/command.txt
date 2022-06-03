@@ -1,0 +1,3 @@
+systemctl stop kubelet kube-proxy kube-apiserver kube-controller-manager kube-scheduler
+cp -p /mnt/hgfs/kubernetes/0_package/v1225/{kubelet,kube-proxy,kube-apiserver,kube-controller-manager,kube-scheduler,kubectl,kube-aggregator,kubeadm} /usr/sbin/
+systemctl start kube-apiserver kube-controller-manager kube-scheduler kube-proxy kubelet

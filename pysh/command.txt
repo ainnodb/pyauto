@@ -1,0 +1,2 @@
+/mnt/hgfs/pyauto/kubernetes/inst.sh st
+#/mnt/hgfs/pyauto/kubernetes/cleank8s.sh

@@ -1,0 +1,254 @@
+#!/bin/bash
+#=============================================================================
+# HEADER
+#=============================================================================
+#% SYNOPSIS
+#%    ${prog}
+#%
+#% DESCRIPTION
+#%    Script to create mysql slave 
+#%
+#% ARGUMENTS
+#%    directory
+#%
+#% EXAMPLES
+#%    ${prog} target_hostname backup_dir
+#%
+#=============================================================================
+#  HISTORY
+#     20220104  innod motingxia@163.com
+#=============================================================================
+#  NOTES
+#=============================================================================
+# END_OF_HEADER
+#=============================================================================
+
+#=============================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#=============================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions.ksh
+fi
+if [ -z "${MYSQLFUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions_mysql.ksh
+fi
+#=============================================================================
+#  FUNCTIONS
+#=============================================================================
+do_exit() {
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
+}
+
+if [ $# -lt 2 ]; then
+    usage
+    exit 8
+fi
+
+RC=0
+log_info "stat time $(date)"
+scriptname=$(basename $0)
+starttime=$(date +%s)
+log_info "start time ${starttime}"
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+log_info  "logfile: ${LogFile}"
+
+#=============================================================================
+#  FUNCTION
+#=============================================================================
+
+check_source (){
+    if cat /data/3308/my.cnf |grep -i hostname >/dev/null; then
+        log_info "hostname already setup"
+    else
+        log_info "hostname is setup, trying to set"
+        sed -i "/default-time_zone/a\hostname    = ${HOSTNAME}"  /data/3380/my.cnf
+        log_info "hostname setup done"
+    fi
+}
+#create slave for a running system
+preparerepluser(){
+targetuserfile="/tmp/${targethost}.$$"
+create_file ${targetuserfile}
+echo "CREATE USER repl@'${targethost}' identified WITH mysql_native_password by '${replpassword}' PASSWORD EXPIRE NEVER;"      >>${targetuserfile}
+echo "CREATE USER repl@'${targetip}' identified WITH mysql_native_password by '${replpassword}' PASSWORD EXPIRE NEVER;"        >>${targetuserfile}
+echo "CREATE USER superman@'localhost' identified WITH mysql_native_password by '${supermanpassword}' PASSWORD EXPIRE NEVER;"  >>${targetuserfile}
+echo "GRANT REPLICATION SLAVE ON *.* TO repl@${targethost};"                     >>${targetuserfile}
+echo "GRANT REPLICATION SLAVE ON *.* TO repl@${targetip};"                       >>${targetuserfile}
+echo "grant all privileges on *.* to 'superman'@'localhost' with grant option;"  >>${targetuserfile}
+
+log_info "check slave & superman user for the target system"
+rs1=$(mysql --login-path=root -e "select host,user from mysql.user where host='${targethost}'"|wc -l) 
+if  [ $rs1 -lt 1 ] ; then
+    log_info "create slave & superman user for the target system"
+    mysql --login-path=root </tmp/${targethost}.$$
+    if [ $? == "0" ]; then
+        log_info   "create repl & superman  done"
+        # check_file  ${targetuserfile}
+    else
+        log_error  "ERROR: create repl & superman  done failed"
+        do_exit 8
+    fi
+else
+    log_info "slave & superman user exist for the target system ${targethost} ;drop them"
+    mysql --login-path=root -e "drop user repl@${targethost}; "
+    mysql --login-path=root -e "drop user repl@${targetip};"
+    mysql --login-path=root -e "drop user superman@localhost;"
+    log_info "drop user repl & superman done,restart this script again...."
+    preparerepluser
+fi
+}
+
+#create a backup for running system and sync to target system
+backupdb(){
+sh ${RUNDIR}/backup_mysql ${targetbackup}
+if [ $? == "0" ]; then
+    log_info   "backup done"
+else
+    log_error  "ERROR: backup failed"
+    do_exit 8
+fi
+
+log_info "create retore folder ${targetbackup} on ${targethost} if not exist"
+ssh ${targethost} "rm -rf ${targetbackup}/*"
+ssh ${targethost} "mkdir -p ${targetbackup}"
+rsync -avz  ${targetbackup}/* ${targethost}:${targetbackup}
+if [ $? == "0" ]; then
+    log_info   "sync bckup to target host  done"
+else
+    log_error  "ERROR:sync bckup to target host failed"
+    do_exit 8
+fi
+}
+##restore db in target system
+restoredb(){
+
+ssh ${targethost} "${RUNDIR}/restore_mysql ${targetbackup}"
+if [ $? = "0" ]; then
+    log_info   "restore slave on ${targethost} successfully "
+else
+    log_error  "ERROR:delpy slave on ${targethost} done failed"
+    do_exit 4
+fi
+}
+
+create_superman_loginpath(){
+
+    echo -y|scp -p ${targethost}:/tmp/pid /tmp/pid
+    target_mysql_pid_dir=$(cat /tmp/pid)
+    log_info "prepare mysql --login-path=superman script"
+    ssh ${targethost} "mysql_config_editor remove --login-path=superman"
+    create_file "/tmp/mysqlconfigurefile"
+    mysqlconfigeditor="/tmp/mysqlconfigurefile"
+
+    echo "#!/usr/bin/expect -f ">>${mysqlconfigeditor}
+    echo "spawn mysql_config_editor set --login-path=superman --user='superman' --host='localhost' --socket=${target_mysql_pid_dir}/mysql.sock --password">>${mysqlconfigeditor}
+    echo "expect -nocase \"Enter password:\" {send \"$supermanpassword\r\"; interact}">>${mysqlconfigeditor}
+
+    chmod +x ${mysqlconfigeditor}
+
+    ssh ${targethost} "rm -rf ${mysqlconfigeditor};rm -rf ~/.mylogin.cnf"
+    scp -p ${mysqlconfigeditor} ${targethost}:${mysqlconfigeditor}
+    log_info "prepare mysql --login-path=superman script done!!!"
+
+    # log_info "start setup --login-path=superman"
+    # ssh ${targethost} "sh ${mysqlconfigeditor}"
+    # ssh ${targethost} "mysqladmin --login-path=superman status"
+    # if [ $? -eq 0 ]; then
+    #     log_info "setup mysql --login-path=superman done!!"
+    # else 
+    #     log_error "setup mysql --login-path=sumperman failed"
+    #     # check_file ${mysqlconfigeditor}
+    #     # do_exit 8
+    # fi
+# log_info "$supermanpassword"
+# ssh ${targethost} "
+# unbuffer expect -c \"
+# spawn mysql_config_editor set --login-path=superman --user='superman' --password
+# expect -nocase \"Enter password:\" {send \"$supermanpassword\r\"; interact}
+# \""
+# ssh ${targethost} "mysqladmin --login-path=superman status"
+# if [ $? -eq 0 ]; then
+# log_info "setup mysql --login-path=superman done!!"
+# else 
+#     log_error "setup mysql --login-path=sumperman failed"
+#     # check_file ${mysqlconfigeditor}
+#     do_exit 8
+# fi
+}
+
+
+stratslave(){
+    log_info  "prepare change master sql script"
+
+    create_file "/tmp/setms.${targethost}"
+    setslavefile="/tmp/setms.${targethost}"
+
+    echo "stop slave;"              >>${setslavefile}
+    echo "reset slave;"             >>${setslavefile}
+    echo "change master to master_host='${HOSTNAME}',master_port=3308,master_user='repl',master_password='${replpassword}',master_auto_position=1;">>${setslavefile}
+    echo "start slave;"             >>${setslavefile}
+    echo "select sleep(5);"         >>${setslavefile}
+    echo "show slave status\G"      >>${setslavefile}
+    ssh ${targethost} "rm -rf ${setslavefile}"
+    scp -p ${setslavefile} ${targethost}:${setslavefile}
+    log_info  "prepare change master sql script done!"
+
+    # log_info   "start setup slave on ${targethost} successfully "
+    # ssh ${targethost} "mysql --login-path=superman -e 'show processlist;'"
+    # ssh ${targethost} "mysql --login-path=superman <${setslavefile}" 
+    # if [ $? = "0" ]; then
+    #     log_info   "setup slave on ${targethost} successfully "
+    #     # check_file ${setslavefile}
+    # else
+    #     log_error   "ERROR setup slave on ${targethost} failed"
+    #     do_exit 4
+    # fi
+}
+
+# {
+runas_root
+check_source
+targethost=$1
+targetbackup=$2
+targetip=$(get_ip ${targethost})
+replpassword=$(head /dev/urandom |cksum |md5sum |cut -c 1-12)
+supermanpassword=$(head /dev/urandom |cksum |md5sum |cut -c 1-12)
+
+
+preparerepluser
+backupdb
+restoredb
+create_superman_loginpath
+stratslave
+
+# } 2>&1 |tee -a $LogFile
+if [ -f /tmp/RC.$$ ]; then
+    RC=$(cat /tmp/RC.$$)
+    rm -f /tmp/RC.$$
+fi
+log_info "RC=${RC}"
+if [ "$RC" == "0" ]; then
+    log_info   "OK: EndofScript ${scriptname} "    | tee -a $LogFile
+else
+    log_error  "ERROR: EndofScript ${scriptname} " | tee -a $LogFile
+fi
+
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info     "$(date)   Runtime      :   $diff"  | tee -a $LogFile
+log_info     "Save log to ${LogFile}         "   | tee -a $LogFile
+echo -e "setup  slave user repl on ${starttime} with password : ${replpassword}"|mail -s "deploy slave  RC=$RC on $(hostname)" motingxia@163.com
+echo -e "superman password : ${supermanpassword}"|mail -s "superman password on $(hostname)" motingxia@163.com
+logrename  ${LogFile}
+exit ${RC}
