@@ -124,5 +124,6 @@ workspace.code-workspace/
 .dmypy.json
 dmypy.json
 Scripts/
+conf/
 # Pyre type checker
 .pyre/
