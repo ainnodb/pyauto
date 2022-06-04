@@ -1,19 +1,28 @@
-build mysql :
-
+     build mysql 
+     ---install mysql with scripts
     deploy inst    "initial mysql and start mysql"
          - post    "reset initial password and setup loging-path=root
          - stop     "stop mysqldb"
          - start    "start mysqldb
          - restart   "restart mysql"
-         - plus      "install plugus"  example: <sh deploy plus semisync_master.so>
-  
-    replicate targethost /directory    "running in the master host and  copy db to target slave host and start db"
-    replicatepost     "setup login-paht for superman and start slave 
+         - 
+     ============================================================================================
+     
+    ---deploy mysql slaves
+    ---running in the master host and  copy db to target slave host and start db"---
+    replicate targethost /directory    
+    ---setup login-paht for superman and start slave 
+    replicatepost     
 
-    backuptool                                          "install xtrabackup tool"
-    backup_mysql   directory(default /data/mysqldata)   "backup for mysql db"
-    restore_mysql  directory                             "restore mysql db" 
+    ---install xtrabackup tool
+    backuptool                                          
 
+    ---backup for mysql db
+    backup_mysql   directory(default /data/mysqldata)   
 
+    ---restore mysql db
+    restore_mysql  directory                             
 
+    ---run sql command or sqlfile direclty"
+    sqlexec sqlfile/sql                                  
  
