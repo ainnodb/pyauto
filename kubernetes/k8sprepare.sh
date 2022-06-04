@@ -135,12 +135,12 @@ log_info "Disable swap done"
 #关闭selinux
 log_info "Start disable selinux"
 setenforce 0 && sed -i 's/=enforcing/=disabled/g' /etc/selinux/config
-log_info "Disable selinux done"
+log_alert "Disable selinux done"
 #关闭numa
 log_info "Start disable numa"
 sed -i 's/quiet/quiet numa=off/g' /etc/default/grub
 grub2-mkconfig -o /etc/grub2.cfg
-log_info "   Disable numa done"
+log_alert "   Disable numa done"
 
 log_info "configure mailbox "
 sed -i 's/inet_interfaces = localhost/inet_interfaces = all/g' /etc/postfix/main.cf

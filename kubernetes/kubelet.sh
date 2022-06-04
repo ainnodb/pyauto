@@ -87,7 +87,7 @@ log_info "  /var/kubelet/${NODE_ADDRESS}  is create"
 KUBELET_OPTS="--kubeconfig=${CFG_DIR}/kubelet.kubeconfig \
    --runtime-cgroups=/systemd/system.slice \
    --config=${CFG_DIR}/kubelet.yaml \
-   --pod-infra-container-image=registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2 \
+   --pod-infra-container-image=win200:5000/pause:3.2 \
    --logtostderr=false \
    --v=2 \
    --log-dir=${LOG_DIR}/kubelet \
@@ -98,6 +98,7 @@ KUBELET_OPTS="--kubeconfig=${CFG_DIR}/kubelet.kubeconfig \
 # --image-pull-progress-deadline=2m
 # --network-plugin=cni
 # --register-node=true
+# --pod-infra-container-image=registry.cn-hangzhou.aliyuncs.com/google_containers/pause:3.2
 
 log_info "  Generate kubelet configure file ${CFG_DIR}/kubelet.conf "
 echo "KUBELET_OPTS=$KUBELET_OPTS">${CFG_DIR}/kubelet.conf

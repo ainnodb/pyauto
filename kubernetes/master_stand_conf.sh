@@ -199,7 +199,7 @@ EOF
 
 {
 if ps -ef|grep -i keepalived|grep -v grep; then
-  log_warning "  keepalived is running,stop it"
+  log_alert "  keepalived is running,stop it"
   if ! systemctl stop keepalived; then
     sleep 5
     pids=$(ps -ef|grep -i keepalived|grep -v grep| awk '{printf("%s ",$2)}')
@@ -207,14 +207,14 @@ if ps -ef|grep -i keepalived|grep -v grep; then
     kill -9 ${pids} 2>/dev/null
   fi
 fi
-log_info "  keepalived is not running"
+log_alert "  keepalived is not running"
 
 if ps -ef|grep -i haproxy|grep -v grep; then
-  log_warning "  haproxy is running,stop it"
+  log_alert "  haproxy is running,stop it"
   if ! systemctl stop haproxy; then
     sleep 5
     pids=$(ps -ef|grep -i haproxy|grep -v grep| awk '{printf("%s ",$2)}')
-    log_warning "   Execute kill -9 ${pids} to stop haproxy"
+    log_alert "   Execute kill -9 ${pids} to stop haproxy"
     kill -9 ${pids} 2>/dev/null
   fi
 fi

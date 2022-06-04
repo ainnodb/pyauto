@@ -193,7 +193,7 @@ node_update(){
   sh ${RUNDIR}/xsync -d ~/functions.ksh
 
   log_info "distribute script to all nodes done"
-  if  `cat ~/.bash_profile |grep -i master-slave.sh` ;then 
+  if [ $(cat ~/.bash_profile |grep -i master-slave.sh|wc-l) -gt 0 ]; then 
       log_info "kubernetes enviroment is already setup"
   else
       echo "if [ -f ~/master-slave.sh ]; then "   >> ~/.bash_profile
@@ -221,6 +221,9 @@ masterslave()
 
   log_info "prepare enviroment for all master node"
   sh ${RUNDIR}/parallers.sh -h "${MS_NODE_NAMES[@]}" -c ${RUNDIR}/master_stand_conf.sh
+
+  log_info "install docker for all nodes"
+  sh ${RUNDIR}/parallers.sh -h "${MS_NODE_NAMES[@]}" -c ${RUNDIR}/docker_inst.sh
 
   log_info "prepare certification generate software"
   sh ${RUNDIR}/cfssl_inst.sh

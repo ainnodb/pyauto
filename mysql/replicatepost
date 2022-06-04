@@ -112,7 +112,7 @@ fi
 
 # } 2>&1 |tee -a $LogFile
 
-if [ -f /tmp/RC.$$ ]; then
+if [[ -f /tmp/RC.$$ ]]; then
     RC=$(cat /tmp/RC.$$)
     rm -f /tmp/RC.$$
 fi

@@ -94,13 +94,33 @@ if [ -d /var/lib/docker ];then
     log_info "  /var/lib/{dockershim,docker,kubelet} are deleted"
 fi
 
-cat <<EOF >/etc/docker/daemon.json
+# cat <<EOF >/etc/docker/daemon.json
+# {
+#     "registry-mirrors": ["https://registry.docker-cn.com"],
+#     "exec-opts": ["native.cgroupdriver=systemd"],
+#     "insecure-registries": ["win200:5000"],
+#     "log-driver": "json-file",
+#     "log-opts": {"max-size": "100m"}
+# }
+# EOF
+
+cat >/etc/docker/daemon.json <<EOF
 {
-    "registry-mirrors": ["https://registry.docker-cn.com"],
+    "registry-mirrors": [
+      "https://registry.docker-cn.com",
+      "https://docker.mirrors.ustc.edu.cn",
+      "http://hub-mirror.c.163.com"
+    ],
     "exec-opts": ["native.cgroupdriver=systemd"],
+    "max-concurrent-downloads": 10,
     "insecure-registries": ["win200:5000"],
+    "log-level": "warn",
+    "log-opts": {
+      "max-size": "10m",
+      "max-file": "3"
+    },
     "log-driver": "json-file",
-    "log-opts": {"max-size": "100m"}
+    "data-root": "/var/lib/docker"
 }
 EOF
 

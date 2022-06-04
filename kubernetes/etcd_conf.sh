@@ -155,15 +155,15 @@ ExecStart=/usr/local/etcd/bin/etcd --config-file=/etc/etcd/cfg/etcd.yml
 [Install]
 WantedBy=multi-user.target
 EOF
-log_info "    Generate etcd.service /usr/lib/systemd/system/etcd.service done "
-log_info "    Trying to start etcd.service......"
+log_info "Generate etcd.service /usr/lib/systemd/system/etcd.service done "
+log_info "Trying to start etcd.service......"
 systemctl daemon-reload;systemctl enable etcd;systemctl restart etcd;systemctl status etcd.service
 sleep 3
-if ps -ef|grep -i etcd| grep -v grep|grep -v flanneld|grep -v etcd_conf.sh; then
-  log_info "  ETCD is running successfully! \n"
+if ps -ef|grep -i etcd| grep -v grep|grep -v flanneld|grep -v etcd_conf.sh 1>/dev/null; then
+  log_info "ETCD is running successfully! \n"
 else
-  log_info "  start etcd failed,pls check in log file /var/log/message"
-  log_info "  tail -f /var/log/message"
+  log_info "start etcd failed,pls check in log file /var/log/message"
+  log_info "tail -f /var/log/message"
   do_exit 8
 fi
 

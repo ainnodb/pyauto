@@ -133,9 +133,9 @@ create_dir() { # $1->path $2->user [$3->group] [$4->mode]
 
 check_file() {  # $1 ->file name
     if [ -f $1 ];then
-        log_info "$1  is exist and will be delete"
+        log_alert "$1  is exist and will be delete"
         rm -rf $1
-        log_info "$1  is delete"
+        log_alert "$1  is delete"
     fi
 }
 

@@ -96,6 +96,7 @@ cat >/etc/docker/daemon.json <<EOF
       "max-size": "10m",
       "max-file": "3"
     },
+    "log-driver": "json-file",
     "data-root": "/var/lib/docker"
 }
 EOF
