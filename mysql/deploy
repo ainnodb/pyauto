@@ -68,13 +68,26 @@ source ~/.bash_profile
 
 exec_counter
 #=============================================================================
-#  root_login_path
+#  setupenv
 #=============================================================================
+setvar(){
+    for f in $(ls);do echo y|cp ${RUNDIR}/${f} ~;done
+    if [ $(cat ~/.bash_profile|grep -i setvar.ksh|wc -l) -eq 0 ];then
+        log_alert "msyql setvar.ksh is not set"
+        echo "if [ -f ~/setvar.ksh ]; then "   >> ~/.bash_profile
+        echo "    . ~/setvar.ksh"              >> ~/.bash_profile
+        echo "fi"                              >> ~/.bash_profile
+        log_alert "msyql setvar.ksh is set"
+    else
+        log_info "msyql env already setup"
+    fi
+    source ~/.bash_profile
+    source ~/functions_mysql.ksh
+    source ~/functions.ksh
+}
 
 mysqlinit() {
-    
     mysqlstop
-
     log_info "delete ${mysql_undo_dir} "
     rm -rf ${mysql_undo_dir}/*
     log_info "delete ${mysql_binlog_dir} "
@@ -302,6 +315,9 @@ case $1 in
         ;;
     inst)
         mysqlinit
+        ;;
+    setvar)
+        setvar
         ;;
     post)
         changeinitpassword

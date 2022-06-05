@@ -50,7 +50,7 @@
 # wget https://cdn.mysql.com/archives/mysql-5.7/mysql-5.7.9.tar.gz
 # }
 
-export installPath="/opt"
+export installPath="/home"
 if  [ ! -d ${installPath} ] ;then
     mkdir -p ${installPath}
     log_info "${installPath} is created"

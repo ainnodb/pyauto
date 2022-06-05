@@ -102,7 +102,16 @@ backupTargetPath=$1
 # mkdir -p ${mysql_log_dir}
 # mkdir -p ${mysql_data_tmp}
 # mkdir -p ${mysql_undo_dir}
-
+sh ${RUNDIR}/deploy setvar
+. ~/.bash_profile
+env|grep -i msyql
+env|grep -i data
+if [[ $(du -b ${mysqlcnf}|cut -d' ' -f1) != "0" ]]; then
+    log_info "${mysqlcnf} exist"
+else
+    log_warning "${mysqlcnf} not exist need generate!"
+    Generatet_Mysql_cnf
+fi
 log_info "delete files on the target host"
 log_info "delete ${mysql_undo_dir} "
 rm -rf ${mysql_undo_dir}/*
@@ -118,10 +127,11 @@ log_info "stop mysql"
 if [ $(ps -ef|grep -i mysql|grep -v grep|grep -v restore|wc -l) -eq 0 ];then 
     log_info "mysql is not running"
 else
-    for i in $(ps -ef|grep -i mysql|grep -v grep|grep -v restore|awk '{print $2}');do kill -9 $i;done
-    if [ $? == "0" ]; then
-        log_info   "mysql is stopped on the host"
-    fi
+    ${RUNDIR}/deploy stop
+    # for i in $(ps -ef|grep -i mysql|grep -v grep|grep -v restore|awk '{print $2}');do kill -9 $i;done
+    # if [ $? == "0" ]; then
+    #     log_info   "mysql is stopped on the host"
+    # fi
 fi
 
 #stop mysql in the target system

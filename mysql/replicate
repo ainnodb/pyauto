@@ -68,7 +68,7 @@ log_info  "logfile: ${LogFile}"
 #=============================================================================
 
 check_source (){
-    if cat /data/3308/my.cnf |grep -i hostname >/dev/null; then
+    if cat ${mysqlcnf} |grep -i hostname >/dev/null; then
         log_info "hostname already setup"
     else
         log_info "hostname is setup, trying to set"
@@ -196,7 +196,7 @@ stratslave(){
 
     echo "stop slave;"              >>${setslavefile}
     echo "reset slave;"             >>${setslavefile}
-    echo "change master to master_host='${HOSTNAME}',master_port=3308,master_user='repl',master_password='${replpassword}',master_auto_position=1;">>${setslavefile}
+    echo "change master to master_host='${targetip}',master_port=${port},master_user='repl',master_password='${replpassword}',master_auto_position=1;">>${setslavefile}
     echo "start slave;"             >>${setslavefile}
     echo "select sleep(5);"         >>${setslavefile}
     echo "show slave status\G"      >>${setslavefile}

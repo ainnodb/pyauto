@@ -72,33 +72,34 @@ else
 fi
 . ~/.bash_profile
 #prepare backup need paramter
+
 if [ $# -gt 0 ];then 
     backupTargetPath=$1
 else 
     filecreatedate=`date +%Y%m%d%H%M`
-    backupTargetPath=/data/mysqldata/${filecreatedate}
+    backupTargetPath=/home/mysqldata/${filecreatedate}
 fi
 if  [ ! -d ${backupTargetPath} ] ;then
     mkdir -p ${backupTargetPath}
     log_info "mysql backup directory ${backupTargetPath} is created"
 else 
-    if [ -f /data/mysqldata/ibdata1 ];then
+    if [ -f "${backupTargetPath}/ibdata1" ];then
         log_warning "there is some old backup in this folder"
         log_warning "do you want to continue:"
         ask_yn
         if [ $? -eq 0 ];then
             log_warning "cleanup the old backup  ${backupTargetPath} and then continue "
-            rm -rf /data/mysqldata/*
+            rm -rf ${backupTargetPath}*
         else
             do_exit 8
         fi
     fi
 fi
 
-defaultpath="$(ps -ef|grep -i socket|cut -d'=' -f3|cut -d'/' -f1,2,3)"
-defaultfile=$(find /data -name my.cnf)
-backupsocket=$(cat $(find /data -name my.cnf)|grep -i mysql.sock|awk 'NR==1{print}'|cut -d'=' -f2)
-backupuser="root"
+# defaultpath="$(ps -ef|grep -i socket|cut -d'=' -f3|cut -d'/' -f1,2,3)"
+# defaultfile=$(find /data -name my.cnf)
+# backupsocket=$(cat $(find /data -name my.cnf)|grep -i mysql.sock|awk 'NR==1{print}'|cut -d'=' -f2)
+# backupuser="root"
 # password="XXXXXXXXXXXXX"
 log_info "start backup on ${HOSTNAME} on target diri ${backupTargetPath}"
 # xtrabackup --defaults-file=${defaultfile} -uroot -pLenovo@2020 -S ${backupsocket} --backup --target-dir=${backupTargetPath}
