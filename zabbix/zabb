@@ -1,0 +1,414 @@
+#!/usr/bin/ksh
+#=============================================================================
+# HEADER
+#=============================================================================
+#% SYNOPSIS
+#%    ${prog}
+#%
+#% DESCRIPTION
+#%    Script to deploy etcd service
+#%
+#% ARGUMENTS
+#%    NONE
+#%
+#% EXAMPLES
+#%    ${prog}
+#%
+#=============================================================================
+#  HISTORY
+#     20220104  innod motingxia@163.com
+#=============================================================================
+#  NOTES
+#=============================================================================
+# END_OF_HEADER
+#=============================================================================
+
+#=============================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#=============================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions.ksh
+fi
+if [ -z "${MYSQLFUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions_mysql.ksh
+fi
+#=============================================================================
+#  FUNCTIONS
+#=============================================================================
+# example: bash etcd.sh etcd01 192.168.0.101 etcd01=https://192.168.0.101:2380,etcd02=https://192.168.0.102:2380
+# ETCD_CLUSTER="win70=https://win70.inno.com:2380,win71=https://win71.inno.com:2380,win72=https://win72.inno.com:2380"
+
+#######################################################################################################################
+## MAIN
+#######################################################################################################################
+do_exit() {
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
+}
+
+if [ $# -lt 1 ]; then
+    usage
+    exit 8
+fi
+RC=0
+scriptname=$(basename $0)
+starttime=$(date +%s)
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+log_info  "    logfile: ${LogFile}"
+source ~/.bash_profile
+
+prepareenv(){
+    log_info "parepare packages"
+    yum -y install unixODBC-devel net-snmp-devel libevent-devel libxml2-devel libcurl-devel
+    yum -y install libwebp-devel  libevent-devel curl-devel pcre*
+    yum -y install gcc gcc-c++ autoconf automake zlib zlib-devel openssl openssl-devel pcre pcre-devel   #for nginx
+    export  PKG_CONFIG_PATH=/usr/lib64/pkgconfig
+    yum install libjpeg libpng freetype libjpeg-devel libpng-devel freetype-devel -y
+    log_info "parepare done"
+}
+
+nginx_inst(){
+    log_info "Start  install nginx"
+    nginxconfigparameter="--prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --user=nginx --group=nginx --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log \
+--pid-path=/var/run/nginx.pid --lock-path=/var/lock/nginx.lock --with-http_ssl_module --with-http_stub_status_module --with-http_gzip_static_module --with-debug --with-http_realip_module  --with-pcre"
+    configure_make_install http://nginx.org/download/nginx-1.22.0.tar.gz nginx ${nginxconfigparameter}
+
+}
+
+zabbix_inst(){
+    log_info "Start  install zabbix"
+    zabbixconfigparameter="--prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc"
+    
+    if [ ! $(id -u "zabbix") ]; then
+        log_warnning "mysql zabbix is not exists for to created"
+        groupadd --system zabbix
+        useradd --system -g zabbix -d /usr/lib/zabbix -s /sbin/nologin -c "Zabbix Monitoring System" zabbix
+        log_info "zabbix id is created!"
+    fi
+# mkdir -m u=rwx,g=rwx,o= -p /usr/local/zabbix
+    configure_make_install https://cdn.zabbix.com/zabbix/sources/stable/6.0/zabbix-6.0.5.tar.gz zabbix ${zabbixconfigparameter}
+    chown zabbix:zabbix /usr/local/zabbix
+# ./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc
+    cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
+    chown -R  nginx:nginx /usr/local/nginx/html
+    chmod 775 -R /usr/local/nginx/html/
+    mkdir /usr/local/zabbix/log
+    chown -R  zabbix:zabbix /usr/local/zabbix
+    echo -y|cp -p /usr/local/zabbix/misc/init.d/tru64/* /etc/init.d/
+    chmod o+x /etc/init.d/zabbix_server
+    chmod o+x /etc/init.d/zabbix_agentd
+    chmod o+x /etc/init.d/zabbix_proxy
+}
+
+
+php_inst(){
+
+    if [ ! $(id -u "php") ]; then
+        log_warnning "php is not exists for to created"
+        groupadd --system php
+        useradd --system -g php -d /usr/lib/php -s /sbin/nologin -c "php Monitoring System" php
+        log_info "php id is created!"
+    fi
+
+    phpconfigureparamter="--prefix=/usr/local/php --enable-fpm --with-fpm-user=nginx --with-fpm-group=nginx --with-openssl --with-zlib --enable-mbstring --with-mysqli=/usr/local/mysql/bin/mysql_config --enable-mysqlnd --with-pdo-mysql=${basedir} \
+--with-mysql-sock=/home/${port}/pid/mysql.sock --enable-gd  --with-jpeg --with-mhash  --with-webp  --with-freetype --enable-bcmath  --with-zlib-dir --enable-sockets \
+--with-curl --enable-zts --with-gettext  --without-pdo-sqlite  --without-sqlite3 --with-freetype"
+    log_info "Start  install php"
+    configure_make_install https://www.php.net/distributions/php-8.1.7.tar.gz php ${phpconfigureparamter}
+}
+
+
+onig_inst(){
+    log_info "Start  install oniguruma"
+    mywget https://github.com/kkos/oniguruma/releases/download/v6.9.7_rc1/onig-6.9.7-rc1.tar.gz  oniguruma.tar.gz
+    check_dir "/usr/local/oniguruma"
+    tar -zxf ${DOWNLOADDIR}oniguruma.tar.gz -C /usr/local
+    # mv /usr/local/onig* /usr/local/oniguruma
+    cd /usr/local/oniguruma;autoreconf -vfi;./configure --prefix=/usr/local/oniguruma --libdir=/lib64
+    if [ $? -eq 0 ];then
+        log_info "oniguruma  configure successfully"
+    else
+        log_error "oniguruma configure failed"
+        do_exit 8
+    fi
+    make && make install
+    if [ $? -eq 0 ];then
+        log_info "oniguruma make and make install configure successfully"
+    else
+        log_error "oniguruma make and make install configure failed"
+        do_exit 8
+    fi
+}
+
+
+zabbix_conf(){
+    zabbix_password=$(head /dev/urandom |cksum |md5sum |cut -c 1-12)
+
+    log_info "zabbix_password==${zabbix_password}"
+    sh ${RUNDIR}/sqlexec "drop database if exists zabbix"
+# sh ${RUNDIR}/sqlexec "create database zabbix character set utf8 collate utf8_bin"
+    sh ${RUNDIR}/sqlexec "create database zabbix character set utf8mb4 collate utf8mb4_bin"
+    sh ${RUNDIR}/sqlexec "drop user zabbix@localhost"
+    sh ${RUNDIR}/sqlexec "create user zabbix@localhost identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
+    sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'${hostname}'"
+    sh ${RUNDIR}/sqlexec "create user 'zabbix'@'${hostname}' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
+    sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'$(hostname -s)'"
+    sh ${RUNDIR}/sqlexec "create user 'zabbix'@'$(hostname -s)' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
+    sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'localhost'"
+    sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'${hostname}'"
+    sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'$(hostname -s)'"
+
+    mysql -uzabbix -p${zabbix_password} -D zabbix < /usr/local/zabbix/database/mysql/schema.sql 2>/dev/null
+    mysql -uzabbix -p${zabbix_password} -D zabbix < /usr/local/zabbix/database/mysql/images.sql 2>/dev/null
+    mysql -uzabbix -p${zabbix_password} -D zabbix < /usr/local/zabbix/database/mysql/data.sql   2>/dev/null
+
+#修改zabbix-server配置文件
+    if [ -f /usr/local/zabbix/etc/zabbix_server.conf.bak ];then 
+        log_info "/usr/local/zabbix/etc/zabbix_server.conf.bak exist"
+        echo -y|cp -p /usr/local/zabbix/etc/zabbix_server.conf.bak /usr/local/zabbix/etc/zabbix_server.conf
+    else
+        cp -p /usr/local/zabbix/etc/zabbix_server.conf /usr/local/zabbix/etc/zabbix_server.conf.bak
+    fi
+
+    sed -i 's/# DBHost=localhost/DBHost=$(hostname)/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i "s/# DBPassword=/DBPassword=${zabbix_password}/" /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartPollers=5/StartPollers=40/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartPreprocessors=3/StartPreprocessors=20/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartPollersUnreachable=1/StartPollersUnreachable=10/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartTrappers=5/StartTrappers=15/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartPingers=1/StartPingers=15/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartDiscoverers=1/StartDiscoverers=5/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# StartVMwareCollectors=0/StartVMwareCollectors=10/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# VMwareFrequency=60/VMwareFrequency=10/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/^# \(VMwarePerfFrequency=60\)/\1/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# VMwareCacheSize=8M/VMwareCacheSize=160M/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# VMwareTimeout=10/VMwareTimeout=300/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# HousekeepingFrequency=1/HousekeepingFrequency=24/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# MaxHousekeeperDelete=5000/MaxHousekeeperDelete=10000/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# CacheSize=8M/CacheSize=4G/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# ValueCacheSize=8M/ValueCacheSize=2G/' /usr/local/zabbix/etc/zabbix_server.conf
+
+# #修改zabbix-agentd配置文件
+    sed -i 's/# Timeout=3/Timeout=30/' /usr/local/zabbix/etc/zabbix_agentd.conf
+}
+
+nginx_conf(){
+
+if [ -f /etc/nginx/nginx.conf.bak ];then
+    cp -p /etc/nginx/nginx.conf.bak /etc/nginx/nginx.conf 
+else 
+    cp -p /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+fi
+
+create_dir /usr/local/nginx/logs
+chown nginx:nginx /usr/local/nginx/logs
+
+cat >/etc/nginx/nginx.conf<<EOF
+worker_processes  1;
+
+events {
+    worker_connections  1024;
+}
+pid       /usr/local/nginx/logs/nginx.pid;
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                      '\$status \$body_bytes_sent "\$http_referer" '
+                      '"\$http_user_agent" "\$http_x_forwarded_for"';
+    log_format json '{"@timestamp":"\$time_iso8601",'
+                           '"@version":"1",'
+                           '"client":"\$remote_addr",'
+                           '"url":"\$uri",'
+                           '"status":"\$status",'
+                           '"domain":"\$host",'
+                           '"host":"\$server_addr",'
+                           '"size":\$body_bytes_sent,'
+                           '"responsetime":\$request_time,'
+                           '"referer":: "\$http_referer",'
+                           '"ua": "\$http_user_agent"'
+               '}';
+
+    sendfile        on;
+    tcp_nopush     on;
+    fastcgi_connect_timeout 600;
+    fastcgi_send_timeout 600;
+    fastcgi_read_timeout 600;
+    fastcgi_buffer_size 64k;
+    fastcgi_buffers 4 64k;
+    fastcgi_busy_buffers_size 128k;
+    fastcgi_temp_file_write_size 128k;
+    fastcgi_temp_path /etc/nginx/nginx_tmp;
+    fastcgi_intercept_errors on;
+    fastcgi_cache_path /etc/nginx/fastcgi_cache levels=1:2 keys_zone=cache_fastcgi:128m inactive=1d max_size=10g;
+
+    keepalive_timeout  65;
+
+    server {
+        listen       80;
+        server_name   $(hostname);
+
+        access_log  /var/log/nginx/zabbix_access_json.log  json;
+        error_log   /var/log/nginx/zabbix_error.log  info;
+        
+        location / {
+            root   /usr/local/nginx/html;
+            index  index.php index.html setup.php index.htm;
+        }
+
+
+        location ~ .*\.(php|php5)?$ {
+	    root html;
+	    fastcgi_pass 127.0.0.1:9000;
+	    fastcgi_index index.php;
+	    fastcgi_cache cache_fastcgi;
+	    fastcgi_cache_valid 200 302 1h;
+	    fastcgi_cache_valid 301 1d;
+	    fastcgi_cache_valid any 1m;
+	    fastcgi_cache_min_uses 1;
+	    fastcgi_cache_use_stale error timeout invalid_header http_500;
+	    fastcgi_cache_key http://\$host\$request_uri;
+	    fastcgi_split_path_info ^(.+\.php)(.*)$;
+      	    fastcgi_param PATH_INFO \$fastcgi_path_info;
+      	    fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+	    include fastcgi_params;
+	}
+
+       #location ~ \.php$ {
+       #    root           html;
+       #    fastcgi_pass   win91.inno.com:9000;
+       #    fastcgi_index  index.php;
+       #    fastcgi_param  SCRIPT_FILENAME
+       #    $document_root$fastcgi_script_name;
+       #    include        fastcgi_params;
+       # }
+    }
+}
+EOF
+}
+php_conf(){
+  echo -y|cp /usr/local/php/etc/php-fpm.conf.default /usr/local/php/etc/php-fpm.conf 
+  echo -y|cp /usr/local/php/etc/php-fpm.d/www.conf.default /usr/local/php/etc/php-fpm.d/www.conf
+  echo -y|cp -p /usr/local/php/php.ini-production /etc/php.ini
+  echo -y|cp -p /usr/local/php/sapi/fpm/init.d.php-fpm /usr/local/php/init.d.php-fpm
+  
+  sed -i 's/post_max_size = 8M/post_max_size = 16M/' /etc/php.ini
+  sed -i 's/max_execution_time = 30/max_execution_time = 300/' /etc/php.ini
+  sed -i 's/max_input_time = 60/max_input_time = 300/' /etc/php.ini
+  sed -i 's/;date.timezone =/;date.timezone = Asia/Shanghai' /etc/php.ini
+}
+
+start(){
+    sh ${RUNDIR}/mysq start
+    
+    /usr/local/php/sbin/php-fpm -c /etc/php.ini
+    if [ `ps -ef|grep -i php |grep -v grep|wc` -gt 0 ];then
+        log_info "phps is running"
+    else
+        log_error "php is not running"
+        do_exit 8
+    fi
+    
+    echo "/usr/local/mysql/lib" >>/etc/ld.so.conf  #error libmysqlclient.so.21 not found
+    ldconfig
+
+    /usr/local/zabbix/sbin/zabbix_server -c /usr/local/zabbix/etc/zabbix_server.conf
+    if [ `ps -ef|grep -i zabbix_server|grep -v grep |wc` -gt 0 ];then
+        log_info "zabbix_server is running"
+    else
+        log_error "zabbix_server is not running"
+        do_exit 8
+    fi
+  # /usr/local/nginx/sbin/nginx  -c /etc/nginx/nginx.conf -s reload
+    /usr/local/nginx/sbin/nginx  -c /etc/nginx/nginx.conf
+    if [ `ps -ef|grep -i nginx|grep -v grep |wc` -gt 0 ];then
+        log_info "nginx is running"
+    else
+        log_error "nginx is not running"
+        do_exit 8
+    fi
+  # /usr/local/nginx/sbin/nginx
+    /usr/local/zabbix/sbin/zabbix_agentd  -c  /usr/local/zabbix/etc/zabbix_agentd.conf 
+    if [ `ps -ef|grep -i zabbix_agentd|grep -v grep |wc` -gt 0 ];then
+        log_info "zabbix_agentd is running"
+    else
+        log_error "zabbix_agentd is not running"
+        do_exit 8
+    fi
+}
+
+stop(){
+    /etc/init.d/zabbix_server stop
+    /etc/init.d/zabbix_agentd stop
+    /usr/local/nginx/sbin/nginx -s stop
+}
+
+inst(){
+    prepareenv
+    sh ${RUNDIR}/mysq inst
+    sh ${RUNDIR}/mysq post
+    nginx_inst
+    zabbix_inst
+    onig_inst
+    php_inst
+    zabbix_conf
+    php_conf
+    nginx_conf
+    start
+}
+{
+case $1 in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    inst)
+        inst
+        ;;
+    restart)
+        stop
+        log_info "waitting for stop..."
+        sleep 5
+        start
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+echo "${RC}" >/tmp/RC.$$
+log_info ""
+log_info "   RC=${RC}"
+log_info ""
+} 2>&1 | tee -a $LogFile
+
+if [[ -f /tmp/RC.$$ ]]; then
+    RC=$(cat /tmp/RC.$$)
+    rm -f /tmp/RC.$$
+fi
+if [ "$RC" == "0" ]; then
+    log_info   "OK: EndofScript ${scriptname} "    | tee -a $LogFile
+else
+    log_error  "ERROR: EndofScript ${scriptname} " | tee -a $LogFile
+fi
+
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info     "$(date)   Runtime      :   $diff"  | tee -a $LogFile
+log_info     "Save log to ${LogFile}         "   | tee -a $LogFile
+logrename  ${LogFile}
+exit ${RC}
