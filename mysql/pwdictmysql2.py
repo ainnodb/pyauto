@@ -70,16 +70,16 @@ if __name__ == "__main__":
     logger = logconf.logconf(logtarget)        #init log config
     word = getword()                           #get password character set
 
-    sql= 'drop table if exists dict4'
+    sql= 'drop table if exists dict3'
     result = executesql(sql)
     print(result)
 
-    sql = 'create table dict4 (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,wordkey char(20))'
+    sql = 'create table dict3 (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,wordkey char(20))'
     # sql = 'create table dict6 (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,wordkey varchar(20))'
     executesql(sql)
-    sql = 'insert into dict4 (wordkey) values (%s)'
+    sql = 'insert into dict3 (wordkey) values (%s)'
     threefor(sql)
 
     # verfication the key number's as the sql result is tuple, so we should use row[0]
-    sql = 'select count(*) from dict4'
+    sql = 'select count(*) from dict3'
     print(executesql(sql))

@@ -139,6 +139,14 @@ check_file() {  # $1 ->file name
     fi
 }
 
+check_dir() {  # $1 ->file name
+    if [ -d $1 ];then
+        log_alert "$1  is exist and will be delete"
+        rm -rf $1
+        log_alert "$1  is delete"
+    fi
+}
+
 create_file() { # $1 ->file name
     if [ -f $1 ];then
         check_file $1
@@ -433,10 +441,10 @@ myinstall() {
 }
 
 mywget() {
-if [ -f ${DOWNLOADDIR}$2 ];then
-    log_alert "package ${DOWNLOADDIR}$2 already download!"
-fi
-while true
+    if [ -f ${DOWNLOADDIR}$2 ];then
+        log_alert "package ${DOWNLOADDIR}$2 already download!"
+    fi
+    while true
     do
         wget -q $1 -O ${DOWNLOADDIR}$2
         if [ $? -eq 0 ]; then
@@ -445,7 +453,28 @@ while true
         fi
     done
 }
+configure_make_install(){
 
+    mywget $1 $2.tar.gz
+    check_dir "/usr/local/php"
+    tar -zxf ${DOWNLOADDIR}$2.tar.gz -C /usr/local
+    cd /usr/local/$2;./configure $3
+
+    if [ $? -eq 0 ];then
+        log_info "$2  configure successfully"
+    else
+        log_error "$2 congirue failed"
+        exit 8
+    fi
+# make && make test && make install
+    make && make install
+    if [ $? -eq 0 ];then
+        log_info "$2 make and make install configure successfully"
+    else
+        log_error "$2 make and install configure failed"
+        exit 8
+    fi
+}
 #================================================================
 # parall run
 #================================================================
