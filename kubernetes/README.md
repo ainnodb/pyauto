@@ -7,10 +7,7 @@ how: put all the kubernetes scripts in same directory.
 
 
     #install kubernetes on a single host##
-    sh deploy.sh st  
+    sh kube st  
         
     ##install kubernet for a cluser with master /slave##
-    sh deploy.sh ms  
-    
-
-
+    sh kube ms 
