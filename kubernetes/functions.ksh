@@ -116,6 +116,7 @@ create_dir() { # $1->path $2->user [$3->group] [$4->mode]
     if [[ ! -d "${1}" ]]; then
         # Create folder
         mkdir "${1}"
+        log_info "folder $1 is created"
     fi
     if [[ -n "${2}" ]]; then
         # set owner
@@ -447,6 +448,7 @@ mywget() {
     fi
     while true
     do
+        log_info "try to download $2..."
         wget -q $1 -O ${DOWNLOADDIR}$2
         if [ $? -eq 0 ]; then
             log_info "download $1 successfully."
@@ -454,30 +456,35 @@ mywget() {
         fi
     done
 }
-configure_make_install(){
 
-    mywget $1 $2.tar.gz
-    check_dir "/usr/local/php"
-    tar -zxf ${DOWNLOADDIR}$2.tar.gz -C /usr/local
-    check_dir /usr/local/$2
-    mv /usr/local/$2* /usr/local/$2
-    cd /usr/local/$2;./configure $3
-
-    if [ $? -eq 0 ];then
-        log_info "$2  configure successfully"
+myrpm() {
+    if [ -f ${DOWNLOADDIR}$2 ];then
+        log_alert "package ${DOWNLOADDIR}$2 already download!"
+        return 0
     else
-        log_error "$2 congirue failed"
-        exit 8
+        log_alert "we need to download $2"
     fi
-# make && make test && make install
-    make && make install
+    while true
+    do
+        log_info "try to download $1..."
+        wget -q $1 -O ${DOWNLOADDIR}$2
+        if [ $? -eq 0 ]; then
+            log_info "download $2 successfully."
+            break;
+        fi
+    done
+    log_info "rpm apply $1 now"
+    rpm -ivh ${DOWNLOADDIR}$2
     if [ $? -eq 0 ];then
-        log_info "$2 make and make install configure successfully"
+        log_info "rpm $2 apply successfully"
+        return 0
     else
-        log_error "$2 make and install configure failed"
-        exit 8
+        log_info "rpm $2 apply failed"
+        return 8
     fi
 }
+
+
 #================================================================
 # parall run
 #================================================================

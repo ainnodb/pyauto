@@ -291,7 +291,7 @@ log_info "mysql configure file ${data_default}/my.cnf is generated"
 }
 
 check_mysql_bin(){
-    if which mysql >/dev/null; then
+    if which mysql 2>/dev/null; then
         log_info "mysql env already setup "
     else
         createmysqlenv
@@ -321,10 +321,12 @@ check_mysql_bin(){
             log_info "<<<mysql env setup done."
         fi
     fi
+    yum -y install libaio  ##mysqld: error while loading shared libraries: libaio.so.1: cannot open shared object file: No such file or directory
+    yum -y install expect
 
     ln -sf /usr/lib64/libncurses.so.6.1 /usr/lib64/libncurses.so.5
     ln -sf /usr/lib64/libtinfo.so.6.1 /usr/lib64/libtinfo.so.5
-    echo /usr/local/mysql/lib             >>/etc/ld.so.conf
+    # echo /usr/local/mysql/lib             >>/etc/ld.so.conf
     echo /usr/local/mysql/lib/mysqlrouter >>/etc/ld.so.conf
     ldconfig
     myinstall expect

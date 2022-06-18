@@ -68,6 +68,7 @@ source ~/.bash_profile
 {
 log_info "Start  install GOLANG"
 mywget https://go.dev/dl/go1.16.10.linux-amd64.tar.gz go1.16.10.linux-amd64.tar.gz
+check_dir /usr/local/go
 tar -xf ${DOWNLOADDIR}/go1.16.10.linux-amd64.tar.gz -C /usr/local
 chown root:root -R /usr/local/go
 if which go;then
@@ -85,6 +86,7 @@ fi
 
 log_info "Start install etcd"
 mywget https://github.com/etcd-io/etcd/archive/v3.5.0.zip etcd.zip
+check_dir /usr/local/etcd
 unzip -q ${DOWNLOADDIR}/etcd.zip -d /usr/local
 mv /usr/local/etcd-3.5.0 /usr/local/etcd
 
