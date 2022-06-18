@@ -41,25 +41,25 @@ fi
 ## MAIN
 #######################################################################################################################
 do_exit() {
-  RC=$1
-  echo "$RC" >/tmp/RC.$$
-  exit $RC
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
 }
 
 if [ $# -gt 0 ]; then
-  usage
-  exit 8
+    usage
+    exit 8
 fi
 RC=0
 scriptname=$(basename $0)
 starttime=$(date +%s)
 if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log  ];then
-  touch ${LOG_FILE_DIR}/${scriptname}.log
-  LogFile=${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
 else
-  rm -rf ${LOG_FILE_DIR}/${scriptname}.log
-  touch ${LOG_FILE_DIR}/${scriptname}.log
-  LogFile=${LOG_FILE_DIR}/${scriptname}.log
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
 fi
 export LogFile=${LOG_FILE_DIR}/${scriptname}.log
 log_info  "    logfile: ${LogFile}"
@@ -68,36 +68,40 @@ source ~/.bash_profile
 {
 log_info "    Start install cfssl"
 mywget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl_1.6.1_linux_amd64 cfssl
-
-cp -p ${DOWNLOADDIR}/cfssl /usr/sbin/cfssl
 if [ $? -eq 0 ]; then
-  log_info "    cfssl install with version $(cfssl version) successfully"
+    echo -y|cp -p ${DOWNLOADDIR}/cfssl /usr/sbin/cfssl
+    chmod +x /usr/sbin/cfssl
+    log_info "    cfssl install with version $(cfssl version) successfully"
 else
-  log_error " cfssl install falied"
-  do_exit 8
+    log_error " cfssl install falied"
+    do_exit 8
 fi
 echo;echo
 
 log_info "    Start install cfssl-certinfo"
 mywget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssl-certinfo_1.6.1_linux_amd64 cfssl-certinfo
 
-cp -p ${DOWNLOADDIR}/cfssl-certinfo /usr/sbin/cfssl-certinfo
 if [ $? -eq 0 ]; then
-  log_info "    cfssl-certinfo install successfully"
+    echo -y|cp -p ${DOWNLOADDIR}/cfssl-certinfo /usr/sbin/cfssl-certinfo
+    chmod +x /usr/sbin/cfssl-certinfo
+    log_info "    cfssl-certinfo install successfully"
 else
-  log_error " cfssl-certinfo install falied"
-  do_exit 8
+    log_error " cfssl-certinfo install falied"
+    do_exit 8
 fi
+
 echo;echo
+
 log_info "    Start install cfssljson"
 mywget https://github.com/cloudflare/cfssl/releases/download/v1.6.1/cfssljson_1.6.1_linux_amd64 cfssljson
-cp -p ${DOWNLOADDIR}/cfssljson /usr/sbin/cfssljson
 if [ $? -eq 0 ]; then
-  log_info "    cfssljson install successfully"
+    log_info "    cfssljson install successfully"
 else
-  log_error " cfssljson install falied"
-  do_exit 8
+    log_error " cfssljson install falied"
+    do_exit 8
 fi
+echo -y|cp -p ${DOWNLOADDIR}/cfssljson /usr/sbin/cfssljson
+chmod +x /usr/sbin/cfssljson
 
 echo "${RC}" >/tmp/RC.$$
 log_info ""

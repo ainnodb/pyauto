@@ -65,10 +65,13 @@ if [ $MASTERNODE = $HOSTNAME ] ;then
     nodepriority=100
     keepstat="MASTER"
     routid="kubenetes1"
+    srcip=${MASTERIP}
+    
 else
     nodepriority=80
     keepstat="BACKUP"
     routid="kubenetes2"
+    srcip=${BACKUPIP}
 fi
 
 keepconf() {
@@ -90,7 +93,7 @@ vrrp_script check_apiserver {
 vrrp_instance VI_1 {
   state ${keepstat}
   interface ens224
-  mcast_src_ip $(get_ip $(hostname))
+  mcast_src_ip ${srcip}
   virtual_router_id 51
   priority ${nodepriority}
   advert_int 2

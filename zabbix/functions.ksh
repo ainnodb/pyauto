@@ -443,6 +443,7 @@ myinstall() {
 mywget() {
     if [ -f ${DOWNLOADDIR}$2 ];then
         log_alert "package ${DOWNLOADDIR}$2 already download!"
+        return 0
     fi
     while true
     do
@@ -458,6 +459,9 @@ configure_make_install(){
     mywget $1 $2.tar.gz
     check_dir "/usr/local/php"
     tar -zxf ${DOWNLOADDIR}$2.tar.gz -C /usr/local
+    check_dir /usr/local/$2
+    mv /usr/local/$2* /usr/local/$2
+    log_info "configure variables : $3"
     cd /usr/local/$2;./configure $3
 
     if [ $? -eq 0 ];then

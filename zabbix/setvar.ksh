@@ -57,7 +57,7 @@ if  [ ! -d ${installPath} ] ;then
 fi
 
 #mysql port
-let port=3300+$(nslookup $(hostname)|grep -i Address|awk '{print $2}'|grep -v '#'|cut -d. -f4)
+let port=3300+$(ip a s|grep -i inet|grep -i global|cut -d '/' -f1|cut -d'.' -f4|awk 'NR==1{print$1}')
 export  port=${port}
 let mysqlx_port=$port*10
 export mysqlServerid="${port}"

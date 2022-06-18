@@ -88,7 +88,7 @@ mywget https://github.com/etcd-io/etcd/archive/v3.5.0.zip etcd.zip
 unzip -q ${DOWNLOADDIR}/etcd.zip -d /usr/local
 mv /usr/local/etcd-3.5.0 /usr/local/etcd
 
-cd /usr/local/etcd/ && ./build.sh
+cd /usr/local/etcd/ && go env -w GOPROXY=https://goproxy.cn && make 
 if [ $? -eq 0 ]; then
   log_info "etcd install successfully"
   etcd --version

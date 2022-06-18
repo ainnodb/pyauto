@@ -193,7 +193,7 @@ node_update(){
   sh ${RUNDIR}/xsync -d ~/functions.ksh
 
   log_info "distribute script to all nodes done"
-  if [ $(cat ~/.bash_profile |grep -i master-slave.sh|wc-l) -gt 0 ]; then 
+  if [[ $(cat ~/.bash_profile |grep -i master-slave.sh|wc -l) -gt 0 ]]; then 
       log_info "kubernetes enviroment is already setup"
   else
       echo "if [ -f ~/master-slave.sh ]; then "   >> ~/.bash_profile

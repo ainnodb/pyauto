@@ -67,7 +67,7 @@ source ~/.bash_profile
 
 
 {
-if which docker>/dev/null ;then
+if which docker  2>/dev/null ;then
     log_alert "docker already installed"
     do_exit 0
 fi
@@ -75,13 +75,13 @@ fi
 log_info "Start  install docker"
 mywget https://download.docker.com/linux/static/stable/x86_64/docker-20.10.9.tgz docker-20.10.9.tgz
 tar -xvf ${DOWNLOADDIR}docker-20.10.9.tgz -C ${DOWNLOADDIR}
-echo y|cp -p ${DOWNLOADDIR}docker/* /usr/bin
+echo -y|cp -p ${DOWNLOADDIR}docker/* /usr/bin
 
-if [ -z ${NODE_NAMES[@]} ]; then
-    sh ${RUNDIR}/xsync -h "${NODE_NAMES[@]}" -d ${DOWNLOADDIR}docker/*
-fi
-
-cat >/etc/docker/daemon.json <<EOF
+# if [ -z ${NODE_NAMES[@]} ]; then
+#     sh ${RUNDIR}/xsync -h "${NODE_NAMES[@]}" -d ${DOWNLOADDIR}docker/*
+# fi
+create_dir /etc/docker
+cat <<EOF >/etc/docker/daemon.json
 {
     "registry-mirrors": [
       "https://registry.docker-cn.com",
@@ -172,7 +172,7 @@ SocketGroup=docker
 WantedBy=sockets.target
 EOF
 groupadd docker
-system daemon-reload
+systemctl daemon-reload
 systemctl enable --now docker.socket  && systemctl enable --now docker.service
 
 

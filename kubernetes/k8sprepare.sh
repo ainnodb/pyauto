@@ -69,6 +69,8 @@ myinstall ipvsadm.x86_64
 myinstall conntrack-tools
 myinstall nmap-ncat
 myinstall mailx
+myinstall ksh
+myinstall rsync
 
 # enable ipvs
 log_info "Start enable ipvs"
