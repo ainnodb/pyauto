@@ -324,6 +324,7 @@ check_mysql_bin(){
 
     ln -sf /usr/lib64/libncurses.so.6.1 /usr/lib64/libncurses.so.5
     ln -sf /usr/lib64/libtinfo.so.6.1 /usr/lib64/libtinfo.so.5
+    echo /usr/local/mysql/lib             >>/etc/ld.so.conf
     echo /usr/local/mysql/lib/mysqlrouter >>/etc/ld.so.conf
     ldconfig
     myinstall expect

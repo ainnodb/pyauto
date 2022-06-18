@@ -116,6 +116,7 @@ create_dir() { # $1->path $2->user [$3->group] [$4->mode]
     if [[ ! -d "${1}" ]]; then
         # Create folder
         mkdir "${1}"
+        log_info "folder $1 is created"
     fi
     if [[ -n "${2}" ]]; then
         # set owner
