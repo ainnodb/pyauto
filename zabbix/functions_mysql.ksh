@@ -98,7 +98,7 @@ if [ -e /etc/sysctl.conf ];then
     fi
 fi
 
-if [ ! $(id -u "mysql") ]; then
+if [ ! $(id -u "mysql") 2>/dev/null ]; then
     echo "mysql user is not exists for to created"
     /usr/sbin/groupadd mysql
     /usr/sbin/useradd -g mysql -r -s /sbin/nologin -M mysql

@@ -71,7 +71,7 @@ prepareenv(){
     log_info "parepare packages"
     yum -y install unixODBC-devel net-snmp-devel libevent-devel libxml2-devel libcurl-devel
     yum -y install libwebp-devel  libevent-devel curl-devel pcre*
-    yum -y install gcc gcc-c++ autoconf automake zlib zlib-devel openssl openssl-devel openssl-lib pcre pcre-devel   #for nginx
+    yum -y install gcc gcc-c++ autoconf automake zlib zlib-devel openssl openssl-devel pcre pcre-devel   #for nginx
     export  PKG_CONFIG_PATH=/usr/lib64/pkgconfig
     yum install libjpeg libpng freetype libjpeg-devel libpng-devel freetype-devel -y
     log_info "parepare done"
@@ -121,9 +121,9 @@ fi
 chown zabbix:zabbix /usr/local/zabbix
 cd /usr/local/zabbix;
 
-log_info "configure as: --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc"
-# ./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc
-./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc  
+log_info "configure as: --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc"
+./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc
+#./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc  
 
 if [ $? -eq 0 ];then
     log_info "zabbix  configure successfully"
@@ -133,7 +133,7 @@ if [ $? -eq 0 ];then
     log_info "zabbix make and make install configure successfully"
 fi
 
-cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
+echo -y|cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
 chown -R  nginx:nginx /usr/local/nginx/html
 chmod 775 -R /usr/local/nginx/html/
 mkdir /usr/local/zabbix/log
@@ -192,8 +192,8 @@ php_inst(){
 zabbix_conf(){
 
     zabbix_password=$(head /dev/urandom |cksum |md5sum |cut -c 1-12)
-    targetip=$(get_ip $(hostname))
-    log_info "zabbix_password==${zabbix_password}"
+    # targetip=$(get_ip $(hostname))
+    # log_info "zabbix_password==${zabbix_password}"
     sh ${RUNDIR}/sqlexec "drop database if exists zabbix"
     # sh ${RUNDIR}/sqlexec "create database zabbix character set utf8 collate utf8_bin"
     sh ${RUNDIR}/sqlexec "create database zabbix character set utf8mb4 collate utf8mb4_bin"
@@ -360,11 +360,11 @@ start(){
         do_exit 8
     fi
     
-    echo "/usr/local/mysql/lib" >>/etc/ld.so.conf  #error libmysqlclient.so.21 not found
+    # echo "/usr/local/mysql/lib/libmysqlclient.so.21" >>/etc/ld.so.conf  #error libmysqlclient.so.21 not found
     ldconfig
 
     /usr/local/zabbix/sbin/zabbix_server -c /usr/local/zabbix/etc/zabbix_server.conf
-    if [ `ps -ef|grep -i zabbix_server|grep -v grep |wc` -gt 0 ];then
+    if [ `ps -ef|grep -i zabbix_server|grep -v grep |wc -l` -gt 0 ];then
         log_info "zabbix_server is running"
     else
         log_error "zabbix_server is not running"
@@ -372,7 +372,7 @@ start(){
     fi
     # /usr/local/nginx/sbin/nginx  -c /etc/nginx/nginx.conf -s reload
     /usr/local/nginx/sbin/nginx  -c /etc/nginx/nginx.conf
-    if [ `ps -ef|grep -i nginx|grep -v grep |wc` -gt 0 ];then
+    if [ `ps -ef|grep -i nginx|grep -v grep |wc -l` -gt 0 ];then
         log_info "nginx is running"
     else
         log_error "nginx is not running"
@@ -380,7 +380,7 @@ start(){
     fi
     # /usr/local/nginx/sbin/nginx
     /usr/local/zabbix/sbin/zabbix_agentd  -c  /usr/local/zabbix/etc/zabbix_agentd.conf 
-    if [ `ps -ef|grep -i zabbix_agentd|grep -v grep |wc` -gt 0 ];then
+    if [ `ps -ef|grep -i zabbix_agentd|grep -v grep |wc -l` -gt 0 ];then
         log_info "zabbix_agentd is running"
     else
         log_error "zabbix_agentd is not running"
@@ -392,6 +392,8 @@ stop(){
     /etc/init.d/zabbix_server stop
     /etc/init.d/zabbix_agentd stop
     /usr/local/nginx/sbin/nginx -s stop
+    for i in $(ps -ef|grep -i php|grep -v grep|awk '{print $2}');do kill -9 $i;done
+    for i in $(ps -ef|grep -i zabbix|grep -v grep|grep -v restore|grep -v root|awk '{print $2}');do kill -9 $i;done
 }
 
 inst(){
