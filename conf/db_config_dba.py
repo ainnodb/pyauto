@@ -1,3 +1,4 @@
+#noupdate for git
 import os
 #os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 #os.environ['NLS_LANG'] = 'AMERICAN_AMERICA.AL32UTF8'

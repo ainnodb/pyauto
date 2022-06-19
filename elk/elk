@@ -1,0 +1,199 @@
+#!usr/bin/ksh
+#=============================================================================
+# HEADER
+#=============================================================================
+#% SYNOPSIS
+#%    ${prog}
+#%
+#% DESCRIPTION
+#%    Script to deploy mysql service
+#%
+#% ARGUMENTS
+#%    NONE
+#%
+#% EXAMPLES
+#%    ${prog}
+#%    sh parallers inst
+#%                 start
+#%                 stop 
+#%                 restart
+#%                 post   (reset inist password ant set login-path=root)
+#=============================================================================
+#  HISTORY
+#     20220601  ainnod motingxia@163.com
+#=============================================================================
+#  NOTES
+#=============================================================================
+# END_OF_HEADER
+#=============================================================================
+
+#=============================================================================
+#  IMPORT COMMON FUNCTIONS AND VARIABLES
+#=============================================================================
+RUNDIR="$(cd "$(dirname "${0}")" && pwd)"
+if [ -z "${FUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions.ksh
+fi
+if [ -z "${ELKFUNCTIONS_IMPORTED}" ]; then
+    . ${RUNDIR}/functions_elk.ksh
+fi
+#=============================================================================
+#  FUNCTIONS
+#=============================================================================
+do_exit() {
+    RC=$1
+    echo "$RC" >/tmp/RC.$$
+    exit $RC
+}
+
+if [ $# -lt 1 ]; then
+    usage
+    exit 8
+fi
+
+RC=0
+scriptname=$(basename $0)
+starttime=$(date +%s)
+if ! [ -f ${LOG_FILE_DIR}/${scriptname}.log ]; then
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+else
+    rm -rf ${LOG_FILE_DIR}/${scriptname}.log
+    touch ${LOG_FILE_DIR}/${scriptname}.log
+    LogFile=${LOG_FILE_DIR}/${scriptname}.log
+fi
+export LogFile=${LOG_FILE_DIR}/${scriptname}.log
+log_info  "logfile: ${LogFile}"
+source ~/.bash_profile
+
+exec_counter
+
+
+
+setelkvar(){
+    for f in $(ls);do echo y|cp ${RUNDIR}/${f} ~;done
+    if [ $(cat ~/.bash_profile|grep -i setvar.ksh|wc -l) -eq 0 ];then
+        log_alert "msyql setvar.ksh is not set"
+        echo "if [ -f ~/setvar.ksh ]; then "   >> ~/.bash_profile
+        echo "    . ~/setvar.ksh"              >> ~/.bash_profile
+        echo "fi"                              >> ~/.bash_profile
+        log_alert "${appname} setvar.ksh is set"
+    else
+        log_info "${appname} env already setup"
+    fi
+    source ~/.bash_profile
+    source ~/functions_mysql.ksh
+    source ~/functions.ksh
+}
+
+set_autostart(){
+    check_file /etc/init.d/elasticsearch
+    log_info "Start generate /etc/init.d/elasticsearch"
+    cat >/etc/init.d/${appname}<<EOF
+#!/bin/sh
+#chkconfig: 2345 80 05
+#description: elasticsearch
+
+export PATH=\$PATH:\$ES_JAVA_HOME/bin:\$JAVA_HOME:${elk_bin}
+
+start(){
+    su - es -c 'elasticsearch -d &'
+    echo "elasticsearch startup"
+}
+stop(){
+    es_pid=\$(ps aux|grep elasticsearch | grep -v 'grep elasticsearch' | awk '{print \$2}')
+    kill -9 \$es_pid
+    echo "elasticsearch stopped"
+}
+case "\$1" in
+start)
+    start
+    ;;  
+stop)
+    stop
+    ;;  
+restart)
+    stop
+    sleep 3
+    echo "elasticsearch stopped"
+    start
+    echo "elasticsearch startup"
+    ;;  
+*)
+    echo "start|stop|restart"
+    ;;  
+esac
+exit \$?
+EOF
+chown -R es:es /etc/init.d/${appname}
+log_info "Generate /etc/init.d/elasticsearch done"
+log_info "add ${appname} start up as OS"
+if [ `chkconfig --list|grep -i ${appname}|wc -l` -eq 1 ];then
+    log_warning "${appname} already there"
+    chkconfig --del ${appname}
+else
+    chkconfig --add ${appname}
+    log_info "add ${appname} start up as OS up done"
+fi
+chkconfig ${appname} on
+systemctl daemon-reload
+}
+
+inst(){
+    check_bin
+    generatet_elk_cnf
+    set_autostart
+}
+
+#=============================================================================
+# main
+#=============================================================================
+case $1 in
+    start)
+        ${appname} start
+        ;;
+    stop)
+        ${appname} stop
+        ;;
+    inst)
+        inst
+        ;;
+    setvar)
+        setelkvar
+        ;;
+    post)
+        changeinitpassword
+        root_login_path
+        ;;
+    restart)
+        ${appname} stop 
+        log_info "waitting for mysql to stop..."
+        sleep 5
+        ${appname} start
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+# mysqladmin --login-path=root processlist
+
+log_info ""
+log_info "RC==${RC}"
+log_info ""                               
+
+if [[ -f /tmp/RC.$$ ]];then
+    RC=$(cat /tmp/RC.$$)
+    rm -rf /tmp/RC.$$
+fi
+if [ "$RC" == "0" ]; then
+    log_info   "OK: EndofScript ${scriptname}"    | tee -a ${LogFile}
+else
+    log_error  "ERROR: EndofScript ${scriptname} " | tee -a ${LogFile}
+fi
+ende=$(date +%s)
+diff=$((ende - starttime))
+log_info    "$(date)   Runtime      :   $diff" | tee -a ${LogFile} 
+log_info    "Save log to ${LogFile}"           | tee -a ${LogFile} 
+logrename  ${LogFile}
+exit ${RC}

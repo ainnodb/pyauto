@@ -1,3 +1,4 @@
+#noupdate 
 import paramiko
 from timeit import default_timer
 from conf import logconf
@@ -9,9 +10,6 @@ import  datetime
 user = 'root'
 password = 'xxxxxxx'
 #pkey = r'"F:\myauto\pysh\id_rsa"'
-
-
-
 
 
 class linuxs(object):
@@ -125,7 +123,7 @@ class linuxs(object):
             self.logger.info("all the batch process running successfully on (%s) \n", self.server)
 
     def __exit__(self, *exc_info):
-       self._conn.close()
-       if self._log_time is True:
-           diff = default_timer() - self._start
-           print('-- %s: %.6f 秒' % (self._log_label, diff))
+        self._conn.close()
+        if self._log_time is True:
+            diff = default_timer() - self._start
+            print('-- %s: %.6f 秒' % (self._log_label, diff))

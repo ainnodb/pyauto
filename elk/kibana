@@ -1,0 +1,30 @@
+#!/bin/sh
+#chkconfig: 2345 80 05
+#description: kibana
+export ES_JAVA_HOME=/data/kibana/jdk
+export JAVA_HOME=/data/kibana/jdk
+export PATH=$ES_JAVA_HOME/bin:$JVAVA_HOME/bin:/data/kibana/bin:$PATH
+export PATH=$PATH:/data/kibana/bin
+
+case "$1" in
+start)
+    su - kibana -c '/data/kibana/bin/kibana &'
+    echo "kibana startup"
+    ;;  
+stop)
+    es_pid=`ps aux|grep  | grep -v 'grep kibana' | awk '{print $2}'`
+    kill -9 $es_pid
+    echo "kibana stopped"
+    ;;  
+restart)
+    es_pid=`ps aux|grep kibana | grep -v 'grep kibana' | awk '{print $2}'`
+    kill -9 $es_pid
+    echo "kibana stopped"
+    su - kibana -c '/data/kibana/bin/kibana &'
+    echo "kibana startup"
+    ;;  
+*)
+    echo "start|stop|restart"
+    ;;
+esac
+exit $?

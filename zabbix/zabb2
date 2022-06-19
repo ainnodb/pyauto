@@ -84,7 +84,7 @@ mywget http://nginx.org/download/nginx-1.22.0.tar.gz nginx.tar.gz
 check_dir "/usr/local/nginx"
 tar -zxf ${DOWNLOADDIR}nginx.tar.gz -C /usr/local
 
-if [ ! $(id -u "nginx") 2>/dev/null ]; then
+if [ ! $(id -u "nginx" 2>/dev/null) ]; then
     log_warning "nginx is not exists for to created"
     groupadd --system nginx
     useradd --system -g nginx -d /usr/lib/nginx -s /sbin/nologin -c "nginx" nginx
@@ -111,7 +111,7 @@ check_dir "/usr/local/zabbix"
 tar -zxf ${DOWNLOADDIR}zabbix.tar.gz -C /usr/local
 mv /usr/local/zabbix* /usr/local/zabbix
 
-if [ ! $(id -u "zabbix") 2>/dev/null ]; then
+if [ ! $(id -u "zabbix" 2>/dev/null) ]; then
     log_warning "mysql zabbix is not exists for to created"
     groupadd --system zabbix
     useradd --system -g zabbix -d /usr/lib/zabbix -s /sbin/nologin -c "Zabbix Monitoring System" zabbix
@@ -133,14 +133,6 @@ if [ $? -eq 0 ];then
     log_info "zabbix make and make install configure successfully"
 fi
 
-echo -y|cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
-chown -R  nginx:nginx /usr/local/nginx/html
-chmod 775 -R /usr/local/nginx/html/
-mkdir /usr/local/zabbix/log
-chown -R  zabbix:zabbix /usr/local/zabbix
-echo -y|cp -p /usr/local/zabbix/misc/init.d/tru64/* /etc/init.d/
-chmod o+x /etc/init.d/zabbix_server
-chmod o+x /etc/init.d/zabbix_agentd
 # chmod o+x /etc/init.d/zabbix_proxy
 }
 
@@ -163,7 +155,7 @@ onig_inst(){
 
 php_inst(){
 
-    if [ ! $(id -u "php") 2>/dev/null ]; then
+    if [ ! $(id -u "php" 2>/dev/null) ]; then
         log_warning "php is not exists for to created"
         groupadd --system php
         useradd --system -g php -d /usr/lib/php -s /sbin/nologin -c "php Monitoring System" php
@@ -190,7 +182,15 @@ php_inst(){
 }
 
 zabbix_conf(){
-
+    check_dir /usr/local/nginx/html
+    cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
+    chown -R  nginx:nginx /usr/local/nginx/html
+    chmod 775 -R /usr/local/nginx/html/
+    mkdir /usr/local/zabbix/log
+    chown -R  zabbix:zabbix /usr/local/zabbix
+    echo -y|cp -p /usr/local/zabbix/misc/init.d/tru64/* /etc/init.d/
+    chmod o+x /etc/init.d/zabbix_server
+    chmod o+x /etc/init.d/zabbix_agentd
     zabbix_password=$(head /dev/urandom |cksum |md5sum |cut -c 1-12)
     # targetip=$(get_ip $(hostname))
     # log_info "zabbix_password==${zabbix_password}"
@@ -199,8 +199,8 @@ zabbix_conf(){
     sh ${RUNDIR}/sqlexec "create database zabbix character set utf8mb4 collate utf8mb4_bin"
     sh ${RUNDIR}/sqlexec "drop user zabbix@localhost"
     sh ${RUNDIR}/sqlexec "create user zabbix@localhost identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
-    sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'${hostname}'"
-    sh ${RUNDIR}/sqlexec "create user 'zabbix'@'${hostname}' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
+    sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'$(hostname)'"
+    sh ${RUNDIR}/sqlexec "create user 'zabbix'@'$(hostname)' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
     sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'$(hostname -s)'"
     sh ${RUNDIR}/sqlexec "create user 'zabbix'@'$(hostname -s)' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
     sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'localhost'"
@@ -220,7 +220,7 @@ zabbix_conf(){
     fi
 
     sed -i 's/# DBHost=localhost/DBHost=$(hostname)/' /usr/local/zabbix/etc/zabbix_server.conf
-    sed -i "s/# DBPassword=/DBPassword=${zabbix_password}/" /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# DBPassword=/DBPassword=${zabbix_password}/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPollers=5/StartPollers=40/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPreprocessors=3/StartPreprocessors=20/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPollersUnreachable=1/StartPollersUnreachable=10/' /usr/local/zabbix/etc/zabbix_server.conf
@@ -360,7 +360,7 @@ start(){
         do_exit 8
     fi
     
-    # echo "/usr/local/mysql/lib/libmysqlclient.so.21" >>/etc/ld.so.conf  #error libmysqlclient.so.21 not found
+    ln -sf /usr/local/mysql/lib/libmysqlclient.so.21  /lib64/libmysqlclient.so.21 #error libmysqlclient.so.21 not found
     ldconfig
 
     /usr/local/zabbix/sbin/zabbix_server -c /usr/local/zabbix/etc/zabbix_server.conf

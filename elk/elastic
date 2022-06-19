@@ -1,0 +1,36 @@
+#!/bin/sh
+#chkconfig: 2345 80 05
+#description: elasticsearch
+export ES_JAVA_HOME=/home/elasticsearch/jdk
+export JAVA_HOME=/home/elasticsearch/jdk
+export PATH=$ES_JAVA_HOME/bin:$JVAVA_HOME/bin:/home/elasticsearch/bin:$PATH
+. ~/.bash_profile
+start(){
+    su - es -c 'elasticsearch -d &'
+    echo "elasticsearch startup"
+}
+stop(){
+    es_pid=$(jps |grep -i elastic|awk '{print $1}')
+    kill -9 $es_pid
+    echo "elasticsearch stopped"
+}
+case "$1" in
+start)
+    start
+    ;;  
+stop)
+    stop
+    echo "elasticsearch stopped"
+    ;;  
+restart)
+    stop
+    echo "elasticsearch stopped"
+    sleep 3
+    start
+    echo "elasticsearch startup"
+    ;;  
+*)
+    echo "start|stop|restart"
+    ;;  
+esac
+exit $?

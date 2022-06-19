@@ -1,0 +1,30 @@
+#!/bin/sh
+#chkconfig: 2345 80 05
+#description: metribeat
+export ES_JAVA_HOME=/home/metribeat/jdk
+export JAVA_HOME=/home/metribeat/jdk
+export PATH=$ES_JAVA_HOME/bin:$JVAVA_HOME/bin:/home/metricbeat:$PATH
+export PATH=$PATH:/home/kibana/bin
+
+case "$1" in
+start)
+    /home/metricbeat/metricbeat -c /home/metricbeat/metricbeat.yml &
+    echo "metribeat startup"
+    ;;  
+stop)
+    es_pid=`ps aux|grep metribeat | grep -v 'grep metribeat' | awk '{print $2}'`
+    kill -9 $es_pid
+    echo "metribeat stopped"
+    ;;  
+restart)
+    es_pid=`ps aux|grep metribeat | grep -v 'grep metribeat' | awk '{print $2}'`
+    kill -9 $es_pid
+    echo "metribeat stopped"
+    /home/metricbeat/metricbeat -c /home/metricbeat/metricbeat.yml &
+    echo "metribeat startup"
+    ;;  
+*)
+    echo "start|stop|restart"
+    ;;  
+esac
+exit $?

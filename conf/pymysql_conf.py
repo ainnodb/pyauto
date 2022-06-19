@@ -1,12 +1,14 @@
+#noupdate
+from pickle import NONE
 import pymysql
 from timeit import default_timer
 
 
-host = 'win75.inno.com'
-port = 30336
+host = 'win88.inno.com'
+port = 3388
 db = 'eygle'
 user = 'root'
-password = 'xxxxxxx'
+password = 'Lenovo@2020'
 
 
 # ---- 用pymysql 操作数据库
@@ -17,7 +19,7 @@ def get_connection():
 
 # ---- 使用 with 的方式来优化代码
 class UsingMysql(object):
-
+    
     def __init__(self, commit=True, log_time=True, log_label='总用时'):
         """
         :param commit: 是否在最后提交事务(设置为False的时候方便单元测试)
