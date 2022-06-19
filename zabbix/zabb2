@@ -404,6 +404,9 @@ inst(){
     zabbix_inst
     onig_inst
     php_inst
+    conf
+}
+conf(){
     zabbix_conf
     php_conf
     nginx_conf
@@ -415,6 +418,9 @@ case $1 in
         ;;
     stop)
         stop
+        ;;
+    conf)
+        conf
         ;;
     inst)
         inst
