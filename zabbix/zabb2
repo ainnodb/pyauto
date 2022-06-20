@@ -12,8 +12,11 @@
 #%    NONE
 #%
 #% EXAMPLES
-#%    ${prog}
-#%
+#%    ${prog}  inst
+#%             stop
+#%             start
+#%             conf
+#%             agent {hostanme}
 #=============================================================================
 #  HISTORY
 #     20220104  innod motingxia@163.com
@@ -66,7 +69,12 @@ else
 export LogFile=${LOG_FILE_DIR}/${scriptname}.log
 log_info  "    logfile: ${LogFile}"
 source ~/.bash_profile
-
+agent_usage(){
+    if [ $# -lt 2 ]; then
+    usage
+    exit 8
+fi
+}
 prepareenv(){
     log_info "parepare packages"
     yum -y install unixODBC-devel net-snmp-devel libevent-devel libxml2-devel libcurl-devel
@@ -462,7 +470,8 @@ case $1 in
         inst
         ;;
     agent)
-        zabbix_agent_inst
+        agent_usage
+        zabbix_agent_inst $1
         ;;
     restart)
         stop
