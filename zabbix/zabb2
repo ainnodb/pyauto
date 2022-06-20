@@ -167,8 +167,8 @@ zabbix_agent_inst() {
     cat >/usr/local/zabbix/etc/zabbix_agentd.conf<<EOF
 LogFile=/tmp/zabbix_agentd.log
 ListenPort=10050
-Server=$1
-ServerActive=$1
+Server=$2
+ServerActive=$2
 Hostname=$(hostname)
 EOF
 #start zabbix agentd
@@ -471,7 +471,7 @@ case $1 in
         ;;
     agent)
         agent_usage
-        zabbix_agent_inst $1
+        zabbix_agent_inst $2
         ;;
     restart)
         stop
