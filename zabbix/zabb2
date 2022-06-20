@@ -159,9 +159,9 @@ zabbix_agent_inst() {
     cat >/usr/local/zabbix/etc/zabbix_agentd.conf<<EOF
 LogFile=/tmp/zabbix_agentd.log
 ListenPort=10050
-Server=win200.inno.com
-ServerActive=win200.inno.com
-Hostname=$(get_ip $(hostname))
+Server=$1
+ServerActive=$1
+Hostname=$(hostname)
 EOF
 #start zabbix agentd
     agent_start
@@ -213,7 +213,7 @@ php_inst(){
 }
 
 zabbix_conf(){
-    create_dir /usr/local/nginx/html
+    # create_dir /usr/local/nginx/html/
     cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
     chown -R  nginx:nginx /usr/local/nginx/html
     chmod 775 -R /usr/local/nginx/html/
@@ -235,7 +235,7 @@ zabbix_conf(){
     sh ${RUNDIR}/sqlexec "drop user 'zabbix'@'$(hostname -s)'"
     sh ${RUNDIR}/sqlexec "create user 'zabbix'@'$(hostname -s)' identified WITH mysql_native_password by '${zabbix_password}' PASSWORD EXPIRE NEVER"
     sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'localhost'"
-    sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'${hostname}'"
+    sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'$(hostname)'"
     sh ${RUNDIR}/sqlexec "grant all privileges on zabbix.* to 'zabbix'@'$(hostname -s)'"
 
     mysql -uzabbix -p${zabbix_password} -D zabbix < /usr/local/zabbix/database/mysql/schema.sql 2>/dev/null
@@ -250,8 +250,8 @@ zabbix_conf(){
         echo -y|cp -p /usr/local/zabbix/etc/zabbix_server.conf /usr/local/zabbix/etc/zabbix_server.conf.bak
     fi
 
-    sed -i 's/# DBHost=localhost/DBHost=$(hostname)/' /usr/local/zabbix/etc/zabbix_server.conf
-    sed -i 's/# DBPassword=/DBPassword=${zabbix_password}/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# DBHost=localhost/DBHost="$(hostname)"/' /usr/local/zabbix/etc/zabbix_server.conf
+    sed -i 's/# DBPassword=/DBPassword="${zabbix_password}"/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPollers=5/StartPollers=40/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPreprocessors=3/StartPreprocessors=20/' /usr/local/zabbix/etc/zabbix_server.conf
     sed -i 's/# StartPollersUnreachable=1/StartPollersUnreachable=10/' /usr/local/zabbix/etc/zabbix_server.conf
@@ -270,6 +270,7 @@ zabbix_conf(){
 
     # #修改zabbix-agentd配置文件
     sed -i 's/# Timeout=3/Timeout=30/' /usr/local/zabbix/etc/zabbix_agentd.conf
+    sed -i 's/Hostname=/Hostname="$(hostname)"/' /usr/local/zabbix/etc/zabbix_agentd.conf
 }
 
 php_conf(){
@@ -436,7 +437,7 @@ inst(){
     sh ${RUNDIR}/mysq inst
     sh ${RUNDIR}/mysq post
     nginx_inst
-    zabbix_inst
+    zabbix_server_inst
     onig_inst
     php_inst
     conf
