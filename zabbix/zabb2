@@ -164,12 +164,14 @@ zabbix_agent_inst() {
     chmod o+x /usr/local/zabbix/misc/init.d/tru64/zabbix_agentd
     cp -p /usr/local/zabbix/misc/init.d/tru64/zabbix_agentd  /usr/local/sbin/
     # chmod o+x /etc/init.d/zabbix_agentd
+    IP=$(ping win102 -c 1|grep -i PING |cut -d'(' -f2|cut -d')' -f1|awk 'NR==1{print $1}')
     cat >/usr/local/zabbix/etc/zabbix_agentd.conf<<EOF
 LogFile=/tmp/zabbix_agentd.log
 ListenPort=10050
 Server=$2
 ServerActive=$2
-Hostname=$(hostname)
+#Hostname=$(hostname)
+Hostname=${IP}
 EOF
 #start zabbix agentd
     agent_start
@@ -470,7 +472,8 @@ case $1 in
         inst
         ;;
     agent)
-        agent_usage
+        # agent_usage
+        prepareenv
         zabbix_agent_inst $2
         ;;
     restart)
