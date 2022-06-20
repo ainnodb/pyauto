@@ -71,7 +71,7 @@ log_info  "logfile: ${LogFile}"
 runas_root
 . ~/.bash_profile
 
-if which xtrabackup >/dev/null; then
+if which xtrabackup 2>/dev/null; then
     log_info "xtrabackup is already install on host ${HOSTNAME}"
 else
     log_warning "xtrabackup is not install on host ${HOSTNAME}"
@@ -102,7 +102,7 @@ backupTargetPath=$1
 # mkdir -p ${mysql_log_dir}
 # mkdir -p ${mysql_data_tmp}
 # mkdir -p ${mysql_undo_dir}
-sh ${RUNDIR}/deploy setvar
+sh ${RUNDIR}/mysq setvar
 . ~/.bash_profile
 env|grep -i msyql
 env|grep -i data

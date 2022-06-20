@@ -98,7 +98,7 @@ if [ -e /etc/sysctl.conf ];then
     fi
 fi
 
-if [ ! $(id -u "mysql") ]; then
+if [ ! $(id -u "mysql" 2>/dev/null) ]; then
     echo "mysql user is not exists for to created"
     /usr/sbin/groupadd mysql
     /usr/sbin/useradd -g mysql -r -s /sbin/nologin -M mysql
@@ -127,8 +127,8 @@ skip_ssl
 skip-name-resolve
 autocommit                         =ON
 character_set_server               =utf8mb4
-collation_server                   =utf8mb4_unicode_ci
-explicit_defaults_for_timestamp    =ON  
+collation_server                   =utf8mb4_bin
+explicit_defaults_for_timestamp    =ON
 lower_case_table_names             =1
 port                               =${port}
 read_only                          =OFF
@@ -291,9 +291,10 @@ log_info "mysql configure file ${data_default}/my.cnf is generated"
 }
 
 check_mysql_bin(){
-    if which mysql >/dev/null; then
+    if which mysql 2>/dev/null; then
         log_info "mysql env already setup "
     else
+        createmysqlenv
         ask_ynac
         if [ $? -eq 0 ];then 
             version_select
@@ -320,13 +321,17 @@ check_mysql_bin(){
             log_info "<<<mysql env setup done."
         fi
     fi
+    yum -y install libaio  ##mysqld: error while loading shared libraries: libaio.so.1: cannot open shared object file: No such file or directory
+    yum -y install expect
 
     ln -sf /usr/lib64/libncurses.so.6.1 /usr/lib64/libncurses.so.5
     ln -sf /usr/lib64/libtinfo.so.6.1 /usr/lib64/libtinfo.so.5
-
-    if [ -f /etc/profile.d/mysql.sh ]; then
-        rm -rf /etc/profile.d/mysql.sh
-        echo "PATH=$PATH:${basedir}/bin" >> /etc/profile.d/mysql.sh
-        chmod +x /etc/profile.d/mysql.sh
-    fi
+    # echo /usr/local/mysql/lib             >>/etc/ld.so.conf
+    echo /usr/local/mysql/lib/mysqlrouter >>/etc/ld.so.conf
+    ldconfig
+    myinstall expect
+    # yum install libaio
+    check_file /etc/profile.d/mysql.sh
+    echo "PATH=$PATH:${basedir}/bin" >> /etc/profile.d/mysql.sh
+    chmod +x /etc/profile.d/mysql.sh
 }
