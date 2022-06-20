@@ -79,61 +79,92 @@ prepareenv(){
 }
 
 nginx_inst(){
-log_info "Start  install nginx"
-mywget http://nginx.org/download/nginx-1.22.0.tar.gz nginx.tar.gz
-check_dir "/usr/local/nginx"
-tar -zxf ${DOWNLOADDIR}nginx.tar.gz -C /usr/local
+    log_info "Start  install nginx"
+    mywget http://nginx.org/download/nginx-1.22.0.tar.gz nginx.tar.gz
+    check_dir "/usr/local/nginx"
+    tar -zxf ${DOWNLOADDIR}nginx.tar.gz -C /usr/local
 
-if [ ! $(id -u "nginx" 2>/dev/null) ]; then
-    log_warning "nginx is not exists for to created"
-    groupadd --system nginx
-    useradd --system -g nginx -d /usr/lib/nginx -s /sbin/nologin -c "nginx" nginx
-    log_info "nginx id is created!"
-fi
+    if [ ! $(id -u "nginx" 2>/dev/null) ]; then
+        log_warning "nginx is not exists for to created"
+        groupadd --system nginx
+        useradd --system -g nginx -d /usr/lib/nginx -s /sbin/nologin -c "nginx" nginx
+        log_info "nginx id is created!"
+    fi
 
-mv /usr/local/nginx* /usr/local/nginx
-cd /usr/local/nginx
-./configure --prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --user=nginx --group=nginx --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log \
---pid-path=/var/run/nginx.pid --lock-path=/var/lock/nginx.lock --with-http_ssl_module --with-http_stub_status_module --with-http_gzip_static_module --with-debug --with-http_realip_module  --with-pcre
-if [ $? -eq 0 ];then
-    log_info "nginx  configure successfully"
-fi
-make && make install
-if [ $? -eq 0 ];then
-    log_info "nginx make and make install configure successfully"
-fi
+    mv /usr/local/nginx* /usr/local/nginx
+    cd /usr/local/nginx
+    ./configure --prefix=/usr/local/nginx --conf-path=/etc/nginx/nginx.conf --user=nginx --group=nginx --error-log-path=/var/log/nginx/error.log --http-log-path=/var/log/nginx/access.log \
+    --pid-path=/var/run/nginx.pid --lock-path=/var/lock/nginx.lock --with-http_ssl_module --with-http_stub_status_module --with-http_gzip_static_module --with-debug --with-http_realip_module  --with-pcre
+    if [ $? -eq 0 ];then
+        log_info "nginx  configure successfully"
+    fi
+    make && make install
+    if [ $? -eq 0 ];then
+        log_info "nginx make and make install configure successfully"
+    fi
 }
 
 zabbix_inst(){
-log_info "Start  install zabbix"
-mywget https://cdn.zabbix.com/zabbix/sources/stable/6.0/zabbix-6.0.5.tar.gz zabbix.tar.gz
-check_dir "/usr/local/zabbix"
-tar -zxf ${DOWNLOADDIR}zabbix.tar.gz -C /usr/local
-mv /usr/local/zabbix* /usr/local/zabbix
+    log_info "Start  install zabbix"
+    mywget https://cdn.zabbix.com/zabbix/sources/stable/6.0/zabbix-6.0.5.tar.gz zabbix.tar.gz
+    check_dir "/usr/local/zabbix"
+    tar -zxf ${DOWNLOADDIR}zabbix.tar.gz -C /usr/local
+    mv /usr/local/zabbix* /usr/local/zabbix
 
-if [ ! $(id -u "zabbix" 2>/dev/null) ]; then
-    log_warning "mysql zabbix is not exists for to created"
-    groupadd --system zabbix
-    useradd --system -g zabbix -d /usr/lib/zabbix -s /sbin/nologin -c "Zabbix Monitoring System" zabbix
-    log_info "zabbix id is created!"
-fi
-# mkdir -m u=rwx,g=rwx,o= -p /usr/local/zabbix
-chown zabbix:zabbix /usr/local/zabbix
-cd /usr/local/zabbix;
+    if [ ! $(id -u "zabbix" 2>/dev/null) ]; then
+        log_warning "mysql zabbix is not exists for to created"
+        groupadd --system zabbix
+        useradd --system -g zabbix -d /usr/lib/zabbix -s /sbin/nologin -c "Zabbix Monitoring System" zabbix
+        log_info "zabbix id is created!"
+    fi
+    # mkdir -m u=rwx,g=rwx,o= -p /usr/local/zabbix
+    chown -R zabbix:zabbix /usr/local/zabbix
+}
 
-log_info "configure as: --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc"
+zabbix_server_inst() {
+    zabbix_inst
+    cd /usr/local/zabbix;
+
+    log_info "configure as: --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc"
 ./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql=/usr/local/mysql/bin/mysql_config --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc
 #./configure --prefix=/usr/local/zabbix --enable-server --enable-agent --enable-proxy --with-mysql --enable-ipv6 --with-net-snmp --with-libcurl --with-libxml2 --with-unixodbc  
 
-if [ $? -eq 0 ];then
-    log_info "zabbix  configure successfully"
-fi
-make && make install
-if [ $? -eq 0 ];then
-    log_info "zabbix make and make install configure successfully"
-fi
+    if [ $? -eq 0 ];then
+        log_info "zabbix  configure successfully"
+    fi
+    make && make install
+    if [ $? -eq 0 ];then
+        log_info "zabbix make and make install configure successfully"
+    fi
 
 # chmod o+x /etc/init.d/zabbix_proxy
+}
+
+zabbix_agent_inst() {
+    zabbix_inst
+    cd /usr/local/zabbix;
+    log_info "configure zabbix agent as: --prefix=/usr/local/zabbix --enable-agent"
+    ./configure --prefix=/usr/local/zabbix --enable-agent
+    if [ $? -eq 0 ];then
+        log_info "zabbix agent configure successfully"
+    fi
+    make && make install
+    if [ $? -eq 0 ];then
+        log_info "zabbix agent make and make install configure successfully"
+    fi
+    
+    chmod o+x /usr/local/zabbix/misc/init.d/tru64/zabbix_agentd
+    cp -p /usr/local/zabbix/misc/init.d/tru64/zabbix_agentd  /usr/local/sbin/
+    # chmod o+x /etc/init.d/zabbix_agentd
+    cat >/usr/local/zabbix/etc/zabbix_agentd.conf<<EOF
+LogFile=/tmp/zabbix_agentd.log
+ListenPort=10050
+Server=win200.inno.com
+ServerActive=win200.inno.com
+Hostname=$(get_ip $(hostname))
+EOF
+#start zabbix agentd
+    agent_start
 }
 
 onig_inst(){
@@ -182,7 +213,7 @@ php_inst(){
 }
 
 zabbix_conf(){
-    check_dir /usr/local/nginx/html
+    create_dir /usr/local/nginx/html
     cp -Rp /usr/local/zabbix/ui/* /usr/local/nginx/html/
     chown -R  nginx:nginx /usr/local/nginx/html
     chmod 775 -R /usr/local/nginx/html/
@@ -255,99 +286,99 @@ php_conf(){
 }
 
 nginx_conf(){
-log_info "configure nginx.conf"
-if ! [ -f /etc/nginx/nginx.conf.bak ];then
-    cp -p /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
-fi
+    log_info "configure nginx.conf"
+    if ! [ -f /etc/nginx/nginx.conf.bak ];then
+        cp -p /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+    fi
 
-create_dir /usr/local/nginx/logs
-chown nginx:nginx /usr/local/nginx/logs
+    create_dir /usr/local/nginx/logs
+    chown nginx:nginx /usr/local/nginx/logs
 
-cat >/etc/nginx/nginx.conf<<EOF
-worker_processes  1;
+    cat >/etc/nginx/nginx.conf<<EOF
+    worker_processes  1;
 
-events {
-    worker_connections  1024;
-}
-pid       /usr/local/nginx/logs/nginx.pid;
+    events {
+        worker_connections  1024;
+    }
+    pid       /usr/local/nginx/logs/nginx.pid;
 
-http {
-    include       mime.types;
-    default_type  application/octet-stream;
+    http {
+        include       mime.types;
+        default_type  application/octet-stream;
 
-    log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
-                      '\$status \$body_bytes_sent "\$http_referer" '
-                      '"\$http_user_agent" "\$http_x_forwarded_for"';
-    log_format json '{"@timestamp":"\$time_iso8601",'
-                           '"@version":"1",'
-                           '"client":"\$remote_addr",'
-                           '"url":"\$uri",'
-                           '"status":"\$status",'
-                           '"domain":"\$host",'
-                           '"host":"\$server_addr",'
-                           '"size":\$body_bytes_sent,'
-                           '"responsetime":\$request_time,'
-                           '"referer":: "\$http_referer",'
-                           '"ua": "\$http_user_agent"'
-               '}';
+        log_format  main  '\$remote_addr - \$remote_user [\$time_local] "\$request" '
+                        '\$status \$body_bytes_sent "\$http_referer" '
+                        '"\$http_user_agent" "\$http_x_forwarded_for"';
+        log_format json '{"@timestamp":"\$time_iso8601",'
+                            '"@version":"1",'
+                            '"client":"\$remote_addr",'
+                            '"url":"\$uri",'
+                            '"status":"\$status",'
+                            '"domain":"\$host",'
+                            '"host":"\$server_addr",'
+                            '"size":\$body_bytes_sent,'
+                            '"responsetime":\$request_time,'
+                            '"referer":: "\$http_referer",'
+                            '"ua": "\$http_user_agent"'
+                '}';
 
-    sendfile        on;
-    tcp_nopush     on;
-    fastcgi_connect_timeout 600;
-    fastcgi_send_timeout 600;
-    fastcgi_read_timeout 600;
-    fastcgi_buffer_size 64k;
-    fastcgi_buffers 4 64k;
-    fastcgi_busy_buffers_size 128k;
-    fastcgi_temp_file_write_size 128k;
-    fastcgi_temp_path /etc/nginx/nginx_tmp;
-    fastcgi_intercept_errors on;
-    fastcgi_cache_path /etc/nginx/fastcgi_cache levels=1:2 keys_zone=cache_fastcgi:128m inactive=1d max_size=10g;
+        sendfile        on;
+        tcp_nopush     on;
+        fastcgi_connect_timeout 600;
+        fastcgi_send_timeout 600;
+        fastcgi_read_timeout 600;
+        fastcgi_buffer_size 64k;
+        fastcgi_buffers 4 64k;
+        fastcgi_busy_buffers_size 128k;
+        fastcgi_temp_file_write_size 128k;
+        fastcgi_temp_path /etc/nginx/nginx_tmp;
+        fastcgi_intercept_errors on;
+        fastcgi_cache_path /etc/nginx/fastcgi_cache levels=1:2 keys_zone=cache_fastcgi:128m inactive=1d max_size=10g;
 
-    keepalive_timeout  65;
+        keepalive_timeout  65;
 
-    server {
-        listen       106;
-        server_name   $(hostname);
+        server {
+            listen       106;
+            server_name   $(hostname);
 
-        access_log  /var/log/nginx/zabbix_access_json.log  json;
-        error_log   /var/log/nginx/zabbix_error.log  info;
-        
-        location / {
-            root   /usr/local/nginx/html;
-            index  index.php index.html setup.php index.htm;
+            access_log  /var/log/nginx/zabbix_access_json.log  json;
+            error_log   /var/log/nginx/zabbix_error.log  info;
+            
+            location / {
+                root   /usr/local/nginx/html;
+                index  index.php index.html setup.php index.htm;
+            }
+
+
+            location ~ .*\.(php|php5)?$ {
+            root html;
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            fastcgi_cache cache_fastcgi;
+            fastcgi_cache_valid 200 302 1h;
+            fastcgi_cache_valid 301 1d;
+            fastcgi_cache_valid any 1m;
+            fastcgi_cache_min_uses 1;
+            fastcgi_cache_use_stale error timeout invalid_header http_500;
+            fastcgi_cache_key http://\$host\$request_uri;
+            fastcgi_split_path_info ^(.+\.php)(.*)$;
+                fastcgi_param PATH_INFO \$fastcgi_path_info;
+                fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+            include fastcgi_params;
         }
 
-
-        location ~ .*\.(php|php5)?$ {
-	    root html;
-	    fastcgi_pass 127.0.0.1:9000;
-	    fastcgi_index index.php;
-	    fastcgi_cache cache_fastcgi;
-	    fastcgi_cache_valid 200 302 1h;
-	    fastcgi_cache_valid 301 1d;
-	    fastcgi_cache_valid any 1m;
-	    fastcgi_cache_min_uses 1;
-	    fastcgi_cache_use_stale error timeout invalid_header http_500;
-	    fastcgi_cache_key http://\$host\$request_uri;
-	    fastcgi_split_path_info ^(.+\.php)(.*)$;
-      	    fastcgi_param PATH_INFO \$fastcgi_path_info;
-      	    fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-	    include fastcgi_params;
-	}
-
-       #location ~ \.php$ {
-       #    root           html;
-       #    fastcgi_pass   win91.inno.com:9000;
-       #    fastcgi_index  index.php;
-       #    fastcgi_param  SCRIPT_FILENAME
-       #    $document_root$fastcgi_script_name;
-       #    include        fastcgi_params;
-       # }
+        #location ~ \.php$ {
+        #    root           html;
+        #    fastcgi_pass   win91.inno.com:9000;
+        #    fastcgi_index  index.php;
+        #    fastcgi_param  SCRIPT_FILENAME
+        #    $document_root$fastcgi_script_name;
+        #    include        fastcgi_params;
+        # }
+        }
     }
-}
 EOF
-log_info "configure nginx.conf done!"
+    log_info "configure nginx.conf done!"
 }
 
 start(){
@@ -379,6 +410,9 @@ start(){
         do_exit 8
     fi
     # /usr/local/nginx/sbin/nginx
+    agent_start
+}
+agent_start(){
     /usr/local/zabbix/sbin/zabbix_agentd  -c  /usr/local/zabbix/etc/zabbix_agentd.conf 
     if [ `ps -ef|grep -i zabbix_agentd|grep -v grep |wc -l` -gt 0 ];then
         log_info "zabbix_agentd is running"
@@ -387,6 +421,7 @@ start(){
         do_exit 8
     fi
 }
+
 
 stop(){
     /etc/init.d/zabbix_server stop
@@ -424,6 +459,9 @@ case $1 in
         ;;
     inst)
         inst
+        ;;
+    agent)
+        zabbix_agent_inst
         ;;
     restart)
         stop
