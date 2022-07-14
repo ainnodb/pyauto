@@ -1,6 +1,7 @@
 """
 使用join方法阻塞主线程
 """
+#_*_ coding:utf-8 _*_
 import time
 import threading
 

@@ -10,4 +10,5 @@ if __name__ == "__main__":
     p = multiprocessing.Process(target=func, args=("hello", ))
     p.start()
     p.join()
+
     print("Sub-process done.")

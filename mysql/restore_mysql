@@ -127,7 +127,7 @@ log_info "stop mysql"
 if [ $(ps -ef|grep -i mysql|grep -v grep|grep -v restore|wc -l) -eq 0 ];then 
     log_info "mysql is not running"
 else
-    ${RUNDIR}/deploy stop
+    ${RUNDIR}/mysq stop
     # for i in $(ps -ef|grep -i mysql|grep -v grep|grep -v restore|awk '{print $2}');do kill -9 $i;done
     # if [ $? == "0" ]; then
     #     log_info   "mysql is stopped on the host"
